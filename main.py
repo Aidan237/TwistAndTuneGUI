@@ -1,5 +1,5 @@
 import sys
-from PyQt6.Widgets import QApplication, QWidget
+from PyQt6.QtWidgets import QApplication, QWidget
 
 app = QApplication(sys.argv)
 
