@@ -27,6 +27,7 @@ Window {
 
         Slider {
             id: setpointSlider
+            objectName: "setpointSlider"
             x: 144
             y: 633
             value: 0.5
@@ -34,6 +35,7 @@ Window {
 
         Text {
             id: setpointText
+            objectName: "setpointText"
             x: 148
             y: 600
             text: qsTr("Target Speed: 300rpm")
@@ -101,6 +103,8 @@ Window {
             SplineSeries {
                 id: lineSeries
                 color: "red"
+                axisX: valueAxisX
+                axisY: valueAxisY
 
                 XYPoint {
                     x: 0
@@ -122,8 +126,6 @@ Window {
                     y: 2.1
                 }
             }
-            axisY: valueAxisY
-            axisX: valueAxisX
         }
     }
 }
