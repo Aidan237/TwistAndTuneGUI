@@ -76,6 +76,7 @@ Window {
 
         GraphsView {
             id: graph
+            objectName: "graph"
             x: 93
             y: 103
             width: 1092
@@ -97,34 +98,15 @@ Window {
             ValueAxis {
                 id: valueAxisY
                 min: 0
-                max: 10
+                max: 600
             }
 
             SplineSeries {
                 id: lineSeries
+                objectName: "graphData"
                 color: "red"
                 axisX: valueAxisX
                 axisY: valueAxisY
-
-                XYPoint {
-                    x: 0
-                    y: 2
-                }
-
-                XYPoint {
-                    x: 3
-                    y: 1.2
-                }
-
-                XYPoint {
-                    x: 7
-                    y: 3.3
-                }
-
-                XYPoint {
-                    x: 10
-                    y: 2.1
-                }
             }
         }
     }
