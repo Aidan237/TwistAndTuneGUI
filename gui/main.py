@@ -7,7 +7,7 @@ from PyQt6.QtCore import QObject
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGraphs import QSplineSeries
 
-ser = serial.Serial('COM3', 9600)  # Update 'COM3' to your Arduino's port
+ser = serial.Serial('COM5', 9600)  # Update 'COM3' to your Arduino's port
 time.sleep(2)   #Wait for the serial connection to initialize
 
 def updateSerial():
