@@ -1,8 +1,26 @@
 import sys
+import serial
+import time
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtCore import QObject
+from PyQt6.QtCore import QTimer
 from PyQt6.QtGraphs import QSplineSeries
+
+ser = serial.Serial('COM3', 9600)  # Update 'COM3' to your Arduino's port
+time.sleep(2)   #Wait for the serial connection to initialize
+
+def updateSerial():
+    if ser.in_waiting > 0:
+        data = ser.readline().decode('utf-8').rstrip()
+        print("Received data from Arduino:", data)
+
+        speedText = root.findChild(QObject, "speedText")
+        if speedText:
+            speedText.setProperty("text", "Actual Speed: " + data + "rpm")
+        else:
+            print("Speed text object not found.")
+
 
 # Define local variables here
 setpoint = 300
@@ -44,6 +62,10 @@ if setpoint_slider:
     setpoint_slider.valueChanged.connect(onSliderMoved)
 else:
     print("Setpoint slider not intialized.")
+
+timer = QTimer()
+timer.timeout.connect(updateSerial)
+timer.start(100)  # Check for new serial data every 100ms
 
 # Exit program when user closes window
 sys.exit(app.exec())

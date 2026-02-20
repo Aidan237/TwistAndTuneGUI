@@ -68,6 +68,7 @@ Window {
 
         Text {
             id: speedText
+            objectName = "speedText"
             x: 585
             y: 608
             text: qsTr("Actual Speed: 300rpm")
