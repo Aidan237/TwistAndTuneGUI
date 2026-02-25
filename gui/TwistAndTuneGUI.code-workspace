@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "VS_code_test",
+			"path": "../../../VS_code_test"
+		},
+		{
+			"name": "Twist_Tune_code",
+			"path": "../arduino/Twist_Tune_code"
+		}
+	],
+	"settings": {}
+}

@@ -7,10 +7,41 @@ from PyQt6.QtCore import QObject
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGraphs import QSplineSeries
 
-ser = serial.Serial('COM5', 9600)  # Update 'COM3' to your Arduino's port
-time.sleep(2)   #Wait for the serial connection to initialize
+SIMULATION_MODE = False
+
+if not SIMULATION_MODE:
+    try:
+        ser = serial.Serial('COM5', 9600)  # Update 'COM3' to your Arduino's port
+        time.sleep(2)   #Wait for the serial connection to initialize
+        print("Connected to Arduino on COM5")
+    except:
+        print("Failed to connect to Arduino. Switching to simulation mode.")
+        SIMULATION_MODE = True
+        ser = None
+else:
+    ser = None
 
 def updateSerial():
+    global ser
+    global SIMULATION_MODE
+
+    if SIMULATION_MODE:
+        # import random
+        # data = random.randint(0, 600)
+        data = "In simulation mode, no actual data :"
+        print("Simulated data:", data)
+
+        speedText = root.findChild(QObject, "speedText")
+
+        if speedText:
+            speedText.setProperty("text", "Actual Speed: " + str(data) + "rpm")
+
+        return
+    
+    if ser is None:
+        print("Serial connection not initialized.")
+        return
+
     if ser.in_waiting > 0:
         data = ser.readline().decode('utf-8').rstrip()
         print("Received data from Arduino:", data)
