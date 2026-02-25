@@ -73,6 +73,9 @@ setpoint_slider = root.findChild(QObject, "setpointSlider")
 setpoint_text = root.findChild(QObject, "setpointText")
 graph = root.findChild(QObject, "graph")
 graphData = graph.findChild(QSplineSeries, "graphData")
+kpText = root.findChild(QObject, "kpText")
+kiText = root.findChild(QObject, "kiText")
+kdText = root.findChild(QObject, "kdText")
 
 # Define functions
 def onSliderMoved():
@@ -87,6 +90,11 @@ def addGraphData(new_data):
             graphData.append(data[0], data[1])
     else:
         print("Invalid data format for graph. Data should be a list of X,Y or a single X,Y.")
+
+def updateGains(kp, ki, kd):
+    kpText.setProperty("text", "Kp: " + str(kp))
+    kiText.setProperty("text", "Ki: " + str(ki))
+    kdText.setProperty("text", "Kd: " + str(kd))
 
 # Connect signals to functions
 if setpoint_slider:

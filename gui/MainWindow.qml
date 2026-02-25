@@ -44,6 +44,7 @@ Window {
 
         Text {
             id: kpText
+            objectName: "kpText"
             x: 428
             y: 651
             text: qsTr("KP Gain: 0.0")
@@ -52,6 +53,7 @@ Window {
 
         Text {
             id: kiText
+            objectName: "kiText"
             x: 638
             y: 651
             text: qsTr("KI Gain: 0.0")
@@ -60,6 +62,7 @@ Window {
 
         Text {
             id: kdText
+            objectName: "kdText"
             x: 853
             y: 651
             text: qsTr("KD Gain: 0.0")
