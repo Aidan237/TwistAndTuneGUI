@@ -7,13 +7,14 @@ from PyQt6.QtCore import QObject
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGraphs import QSplineSeries
 
-SIMULATION_MODE = True
+SIMULATION_MODE = False
 
 if not SIMULATION_MODE:
     try:
-        ser = serial.Serial('COM5', 9600)  # Update 'COM3' to your Arduino's port
+        com = 'COM5'
+        ser = serial.Serial(com, 9600) 
         time.sleep(2)   #Wait for the serial connection to initialize
-        print("Connected to Arduino on COM5")
+        print("Connected to Arduino on " + com)
     except:
         print("Failed to connect to Arduino. Switching to simulation mode.")
         SIMULATION_MODE = True
