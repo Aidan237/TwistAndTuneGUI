@@ -7,7 +7,7 @@ from PyQt6.QtCore import QObject
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGraphs import QSplineSeries
 
-SIMULATION_MODE = False
+SIMULATION_MODE = True
 
 if not SIMULATION_MODE:
     try:
@@ -26,10 +26,10 @@ def updateSerial():
     global SIMULATION_MODE
 
     if SIMULATION_MODE:
-        # import random
-        # data = random.randint(0, 600)
-        data = "In simulation mode, no actual data :"
+        import random
+        data = random.randint(0, 600)
         print("Simulated data:", data)
+        addGraphData((time.time() - initializeTime, data))
 
         speedText = root.findChild(QObject, "speedText")
 
@@ -55,6 +55,7 @@ def updateSerial():
 
 # Define local variables here
 setpoint = 300
+initializeTime = time.time()
 
 # Create windows application
 app = QGuiApplication(sys.argv)
@@ -73,6 +74,7 @@ setpoint_slider = root.findChild(QObject, "setpointSlider")
 setpoint_text = root.findChild(QObject, "setpointText")
 graph = root.findChild(QObject, "graph")
 graphData = graph.findChild(QSplineSeries, "graphData")
+graphAxisX = graph.findChild(QObject, "graphAxisX")
 kpText = root.findChild(QObject, "kpText")
 kiText = root.findChild(QObject, "kiText")
 kdText = root.findChild(QObject, "kdText")
@@ -90,6 +92,11 @@ def addGraphData(new_data):
             graphData.append(data[0], data[1])
     else:
         print("Invalid data format for graph. Data should be a list of X,Y or a single X,Y.")
+    
+    # Scale x-axis to show last 30 seconds of data
+    graphAxisX.setProperty("max", time.time() - initializeTime + 5)
+    if time.time() - initializeTime > 15:
+        graphAxisX.setProperty("min", time.time() - initializeTime - 10)  
 
 def updateGains(kp, ki, kd):
     kpText.setProperty("text", "Kp: " + str(kp))

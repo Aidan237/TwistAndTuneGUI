@@ -95,6 +95,7 @@ Window {
 
             ValueAxis {
                 id: valueAxisX
+                objectName: "graphAxisX"
                 min: 0
                 max: 10
             }
