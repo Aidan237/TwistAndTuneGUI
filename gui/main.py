@@ -21,38 +21,6 @@ if not SIMULATION_MODE:
 else:
     ser = None
 
-def updateSerial():
-    global ser
-    global SIMULATION_MODE
-
-    if SIMULATION_MODE:
-        import random
-        data = random.randint(0, 600)
-        print("Simulated data:", data)
-        addGraphData((time.time() - initializeTime, data))
-
-        speedText = root.findChild(QObject, "speedText")
-
-        if speedText:
-            speedText.setProperty("text", "Actual Speed: " + str(data) + "rpm")
-
-        return
-    
-    if ser is None:
-        print("Serial connection not initialized.")
-        return
-
-    if ser.in_waiting > 0:
-        data = ser.readline().decode('utf-8').rstrip()
-        print("Received data from Arduino:", data)
-
-        speedText = root.findChild(QObject, "speedText")
-        if speedText:
-            speedText.setProperty("text", "Actual Speed: " + data + "rpm")
-        else:
-            print("Speed text object not found.")
-
-
 # Define local variables here
 setpoint = 300
 initializeTime = time.time()
@@ -75,11 +43,64 @@ setpoint_text = root.findChild(QObject, "setpointText")
 graph = root.findChild(QObject, "graph")
 graphData = graph.findChild(QSplineSeries, "graphData")
 graphAxisX = graph.findChild(QObject, "graphAxisX")
+speedText = root.findChild(QObject, "speedText")
 kpText = root.findChild(QObject, "kpText")
 kiText = root.findChild(QObject, "kiText")
 kdText = root.findChild(QObject, "kdText")
 
 # Define functions
+
+def updateSerial():
+    global ser
+    global SIMULATION_MODE
+
+    if SIMULATION_MODE:
+        import random
+        data = random.randint(0, 600)
+        print("Simulated data:", data)
+        addGraphData((time.time() - initializeTime, data))
+
+        speedText = root.findChild(QObject, "speedText")
+
+        if speedText:
+            speedText.setProperty("text", "Actual Speed: " + str(data) + "rpm")
+
+        return
+    
+    if ser is None:
+        print("Serial connection not initialized.")
+        return
+
+    if ser.in_waiting > 0:
+        # Read line of data from serial, decode, then split into list of floats
+        data = ser.readline().decode('utf-8').rstrip()
+        print("Received data from Arduino:", data)
+        dataValues = getDataFromSerial(data)
+
+        # Add latest speed output to graph
+        addGraphData((time.time() - initializeTime, dataValues[0]))
+
+        # Update speed and gain text
+        speedText.setProperty("text", "Actual Speed: " + str(dataValues[0]) + "rpm")
+        kpText.setProperty("text", "Kp: " + str(dataValues[1])) 
+        kiText.setProperty("text", "Ki: " + str(dataValues[2]))
+        kdText.setProperty("text","Kd: " + str(dataValues[3]))
+
+        return
+
+def getDataFromSerial(data):
+    dataString = ""
+    dataList = []
+
+    for c in data:
+        if c != ',':
+            dataString += c
+        else:
+            dataList.append(float(dataString))
+            dataString = ""
+
+    return dataList
+
 def onSliderMoved():
     setpoint = int(600 * setpoint_slider.property("value"))
     setpoint_text.setProperty("text", "Target Speed: " + str(setpoint) + "rpm")
