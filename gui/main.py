@@ -25,6 +25,7 @@ else:
 # Define local variables here
 setpoint = 300
 initializeTime = time.time()
+sliderCooldown = initializeTime
 
 # Create windows application
 app = QGuiApplication(sys.argv)
@@ -105,6 +106,9 @@ def getDataFromSerial(data):
 def onSliderMoved():
     setpoint = int(600 * setpoint_slider.property("value"))
     setpoint_text.setProperty("text", "Target Speed: " + str(setpoint) + "rpm")
+    if time.time() - sliderCooldown > 0.5:  # Limit how often we send commands to avoid overwhelming serial
+        sliderCooldown = time.time()
+        sendCommand("S" + str(setpoint))
 
 def addGraphData(new_data):
     if isinstance(new_data, tuple) and isinstance(new_data[0], (int, float)) and isinstance(new_data[1], (int, float)):
@@ -124,6 +128,15 @@ def updateGains(kp, ki, kd):
     kpText.setProperty("text", "Kp: " + str(kp))
     kiText.setProperty("text", "Ki: " + str(ki))
     kdText.setProperty("text", "Kd: " + str(kd))
+
+def sendCommand(command):
+    if SIMULATION_MODE:
+        print("Command " + command + "not sent: In simulation mode.")
+    elif ser is None:
+        print("Command " + command + " not sent: Serial connection not initialized.")
+    else:
+        commandString = '<' + command + '>'
+        ser.write(commandString.encode('utf-8'))
 
 # Connect signals to functions
 if setpoint_slider:
