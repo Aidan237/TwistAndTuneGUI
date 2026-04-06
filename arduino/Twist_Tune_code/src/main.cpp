@@ -3,12 +3,6 @@
 // Encoder input interrupt
 #define ENCODER_A 2
 
-// External PID analog voltage input
-#define PID_VOLT_IN A7
-
-// PWM output to motor driver
-#define PWM_OUT 5
-
 // PWM output for error signal
 #define ERROR_VOUT 6
 
@@ -42,20 +36,23 @@ const float MIN_R_OHMS = 1.0;
 const int NUM_SAMPLES = 10;
 
 String inputString;
-float userSpeed;
+float userSpeed = 0;
 bool speedSet = false;
 
 volatile unsigned long pulses = 0;
 
+String inputString = "";         // a String to hold incoming data
+
 void setup() {
 
-  //pinMode(PWM_OUT, OUTPUT);
   pinMode(ERROR_VOUT, OUTPUT);
 
   Serial.begin(9600);
 
   // Encoder pulse counter
   attachInterrupt(digitalPinToInterrupt(ENCODER_A), countPulses, RISING);
+
+  Serial.println("Enter Speed (1-600 RPM). Type * to reset.");
 }
 
 void loop() {
@@ -63,6 +60,39 @@ void loop() {
   unsigned long currentTime = millis();
 
   float rpm = 0;
+
+  // 🔹 SERIAL INPUT HANDLER
+  while (Serial.available()) {
+    char c = Serial.read();
+
+    if (c == '\n') {   // Enter pressed
+      int spd = inputString.toInt();
+
+      if (spd >= 1 && spd <= 600) {
+        userSpeed = spd;
+        speedSet = true;
+        Serial.print("Setpoint: ");
+        Serial.println(userSpeed);
+      } else {
+        Serial.println("Invalid. Enter 1–600.");
+      }
+
+      inputString = "";
+    }
+    else if (c == '*') {   // Reset command
+      speedSet = false;
+      analogWrite(ERROR_VOUT, 0);
+      Serial.println("Reset. Enter new speed.");
+      inputString = "";
+    }
+    else {
+      inputString += c;
+    }
+  }
+
+  if (!speedSet) {
+    return; // Skip rest of loop until speed is set
+  }
 
   // 2. RPM CALCULATION EVERY 100ms
   if (currentTime - previousTimeSerial >= 100) {
@@ -79,7 +109,7 @@ void loop() {
     int errorPWM = map(error, -300, 300, 0, 255);
     errorPWM = constrain(errorPWM, 0, 255);
 
-        // Read display gains
+    // Read display gains
     float rawVp = readAverage(VP_PIN);
     float rawVi = readAverage(VI_PIN);
     float rawVd = readAverage(VD_PIN);
