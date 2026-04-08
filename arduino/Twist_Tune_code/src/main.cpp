@@ -8,6 +8,9 @@
 
 #define PULSES_PER_REV 120
 
+#define STEP_PERIOD 1000   // ms for one full step cycle (on + off)
+#define STEP_HIGH 500      // ms for high portion of step cycle
+
 // input pins
 const int VP_PIN = A0;   // P2 pin 5
 const int VI_PIN = A1;   // P3 pin 5
@@ -35,7 +38,12 @@ const float MIN_R_OHMS = 1.0;
 // Opt averaging for smoother display
 const int NUM_SAMPLES = 10;
 
-String inputString;
+double setPoint = 0;
+double savedSetPoint = 0;
+bool stepToggle = false;
+unsigned long stepStartTime = 0;
+bool stepHigh = false;
+
 float userSpeed = 0;
 bool speedSet = false;
 
@@ -70,6 +78,7 @@ void loop() {
 
       if (spd >= 1 && spd <= 600) {
         userSpeed = spd;
+        savedSetPoint = spd;
         speedSet = true;
         Serial.print("Setpoint: ");
         Serial.println(userSpeed);
@@ -85,8 +94,26 @@ void loop() {
       Serial.println("Reset. Enter new speed.");
       inputString = "";
     }
+    else if (c == 't'){
+      stepToggle = !stepToggle;
+      stepStartTime = millis();
+      stepHigh = true;
+    }
     else {
       inputString += c;
+    }
+  }
+
+  if (stepToggle) {
+    if (currentTime - stepStartTime >= (stepHigh ? STEP_HIGH : (STEP_PERIOD - STEP_HIGH))) {
+      stepStartTime = currentTime;
+      stepHigh = !stepHigh;
+
+      userSpeed = stepHigh ? savedSetPoint : 0;
+
+      noInterrupts();
+      pulses = 0; // Reset pulse count at each step change
+      interrupts();
     }
   }
 
@@ -131,13 +158,13 @@ void loop() {
 
     analogWrite(ERROR_VOUT, errorPWM);
 
-    // Output CSV
-    //Serial.print(currentTime);
-    //Serial.print(", 0, 600");
-    //Serial.print(",");
-    //Serial.print(userSpeed);
-    //Serial.print(",");
-    Serial.println(rpm);
+    Serial.print(rpm);
+    Serial.print(",");
+    Serial.print(Kp);
+    Serial.print(",");
+    Serial.print(Ki);
+    Serial.print(",");
+    Serial.println(Kd);
   }
 
 }
