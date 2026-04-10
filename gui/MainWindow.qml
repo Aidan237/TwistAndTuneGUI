@@ -108,8 +108,16 @@ Window {
 
             SplineSeries {
                 id: lineSeries
-                objectName: "graphData"
+                objectName: "speedGraphData"
                 color: "red"
+                axisX: valueAxisX
+                axisY: valueAxisY
+            }
+
+            LineSeries {
+                id: lineSeries
+                objectName: "setpointGraphData"
+                color: "blue"
                 axisX: valueAxisX
                 axisY: valueAxisY
             }
