@@ -1,9 +1,10 @@
 import sys
 import serial
 import time
+import os
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQml import QQmlApplicationEngine
-from PyQt6.QtCore import QObject
+from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGraphs import QSplineSeries
 
@@ -31,8 +32,10 @@ sliderCooldown = initializeTime
 app = QGuiApplication(sys.argv)
 
 # Create instance of Qt engine to handle UI elements
+current_dir = os.path.dirname(os.path.abspath(__file__))
+qml_path = os.path.join(current_dir, "MainWindow.qml")
 engine = QQmlApplicationEngine()
-engine.load("MainWindow.qml")
+engine.load(QUrl.fromLocalFile(qml_path))
 
 # Check that UI loaded properly
 if not engine.rootObjects():
