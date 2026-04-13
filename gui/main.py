@@ -50,6 +50,7 @@ kpText = root.findChild(QObject, "kpText")
 kiText = root.findChild(QObject, "kiText")
 kdText = root.findChild(QObject, "kdText")
 
+
 # Define functions
 
 def updateSerial():
@@ -62,6 +63,7 @@ def updateSerial():
         print("Simulated data:", data)
         addGraphData((time.time() - initializeTime, data))
 
+        global speedText
         speedText = root.findChild(QObject, "speedText")
 
         if speedText:
@@ -91,24 +93,18 @@ def updateSerial():
         return
 
 def getDataFromSerial(data):
-    dataString = ""
-    dataList = []
-
-    for c in data:
-        if c != ',':
-            dataString += c
-        else:
-            dataList.append(float(dataString))
-            dataString = ""
-
-    return dataList
+    try:
+        return [float(x) for x in data.split(',')]
+    except:
+        return []
 
 def onSliderMoved():
+    global setpoint, sliderCooldown
     setpoint = int(600 * setpoint_slider.property("value"))
     setpoint_text.setProperty("text", "Target Speed: " + str(setpoint) + "rpm")
     if time.time() - sliderCooldown > 0.5:  # Limit how often we send commands to avoid overwhelming serial
         sliderCooldown = time.time()
-        sendCommand("S" + str(setpoint))
+        sendCommand(str(setpoint))
 
 def addGraphData(new_data):
     if isinstance(new_data, tuple) and isinstance(new_data[0], (int, float)) and isinstance(new_data[1], (int, float)):
@@ -130,13 +126,10 @@ def updateGains(kp, ki, kd):
     kdText.setProperty("text", "Kd: " + str(kd))
 
 def sendCommand(command):
-    if SIMULATION_MODE:
-        print("Command " + command + "not sent: In simulation mode.")
-    elif ser is None:
-        print("Command " + command + " not sent: Serial connection not initialized.")
-    else:
-        commandString = '<' + command + '>'
-        ser.write(commandString.encode('utf-8'))
+    if SIMULATION_MODE or ser is None:
+        return
+    
+    ser.write((command + '\n').encode('utf-8'))
 
 # Connect signals to functions
 if setpoint_slider:
