@@ -1,13 +1,14 @@
 import sys
 import serial
 import time
+import os
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQml import QQmlApplicationEngine
-from PyQt6.QtCore import QObject
+from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGraphs import QSplineSeries
 
-SIMULATION_MODE = False
+SIMULATION_MODE = True
 
 if not SIMULATION_MODE:
     try:
@@ -31,8 +32,10 @@ sliderCooldown = initializeTime
 app = QGuiApplication(sys.argv)
 
 # Create instance of Qt engine to handle UI elements
+current_dir = os.path.dirname(os.path.abspath(__file__))
+qml_path = os.path.join(current_dir, "MainWindow.qml")
 engine = QQmlApplicationEngine()
-engine.load("MainWindow.qml")
+engine.load(QUrl.fromLocalFile(qml_path))
 
 # Check that UI loaded properly
 if not engine.rootObjects():
@@ -43,7 +46,8 @@ root = engine.rootObjects()[0]
 setpoint_slider = root.findChild(QObject, "setpointSlider")
 setpoint_text = root.findChild(QObject, "setpointText")
 graph = root.findChild(QObject, "graph")
-graphData = graph.findChild(QSplineSeries, "graphData")
+speedGraphData = graph.findChild(QSplineSeries, "speedGraphData")
+setpointGraphData = graph.findChild(QSplineSeries, "setpointGraphData")
 graphAxisX = graph.findChild(QObject, "graphAxisX")
 speedText = root.findChild(QObject, "speedText")
 kpText = root.findChild(QObject, "kpText")
@@ -108,10 +112,10 @@ def onSliderMoved():
 
 def addGraphData(new_data):
     if isinstance(new_data, tuple) and isinstance(new_data[0], (int, float)) and isinstance(new_data[1], (int, float)):
-        graphData.append(new_data[0], new_data[1])
+        speedGraphData.append(new_data[0], new_data[1])
     elif isinstance(new_data, list) and all(isinstance(data, tuple) and isinstance(data[0], (int, float)) and isinstance(data[1], (int, float)) for data in new_data):
         for data in new_data:
-            graphData.append(data[0], data[1])
+            speedGraphData.append(data[0], data[1])
     else:
         print("Invalid data format for graph. Data should be a list of X,Y or a single X,Y.")
     
