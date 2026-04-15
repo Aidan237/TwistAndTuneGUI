@@ -22,6 +22,9 @@ if not SIMULATION_MODE:
 else:
     ser = None
 
+# System configiguration
+os.environ["QT_QUICK_CONTROLS_STYLE"] = "Fusion"
+
 # Define local variables here
 setpoint = 300
 initializeTime = time.time()
@@ -47,8 +50,9 @@ if not engine.rootObjects():
 root = engine.rootObjects()[0]
 setpoint_slider = root.findChild(QObject, "setpointSlider")
 setpoint_text = root.findChild(QObject, "setpointText")
+reset_button = root.findChild(QObject, "resetButton")
 graph = root.findChild(QObject, "graph")
-speedGraphData = graph.findChild(QSplineSeries, "speedGraphData")
+speedGraphData = graph.findChild(QLineSeries, "speedGraphData")
 setpointGraphData = graph.findChild(QLineSeries, "setpointGraphData")
 graphAxisX = graph.findChild(QObject, "graphAxisX")
 speedText = root.findChild(QObject, "speedText")
@@ -65,7 +69,7 @@ def updateSerial():
 
     if SIMULATION_MODE:
         import random
-        data = random.randint(0, 600)
+        data = random.randint(30, 570)
         print("Simulated data:", data)
 
         addGraphData((time.time() - initializeTime, data), "speed")
@@ -152,11 +156,26 @@ def sendCommand(command):
     
     ser.write((command + '\n').encode('utf-8'))
 
+def onResetClicked():
+    global initializeTime, speedPointsBuffer, setpointPointsBuffer
+    initializeTime = time.time()
+    speedPointsBuffer.clear()
+    setpointPointsBuffer.clear()
+    speedGraphData.replace(speedPointsBuffer)
+    setpointGraphData.replace(setpointPointsBuffer)
+    graphAxisX.setProperty("min", 0)
+    graphAxisX.setProperty("max", 10)
+
 # Connect signals to functions
 if setpoint_slider:
     setpoint_slider.valueChanged.connect(onSliderMoved)
 else:
     print("Setpoint slider not intialized.")
+
+if reset_button:
+    reset_button.clicked.connect(onResetClicked)
+else:
+    print("Reset button not initialized.")
 
 timer = QTimer()
 timer.timeout.connect(updateSerial)

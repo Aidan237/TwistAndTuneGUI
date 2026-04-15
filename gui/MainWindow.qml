@@ -33,7 +33,58 @@ Window {
             value: 0.5
         }
 
-        // x-axis label
+        Button {
+            id: settingsButton
+            objectName: "settingsButton"
+            text: qsTr("Settings")
+            x: 93
+            y: 65 
+            width: 80
+            height: 30
+
+            contentItem: Text {
+                text: settingsButton.text
+                font.pixelSize: 14
+                font.bold: true
+                color: "black"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            background: Rectangle {
+                color: resetButton.down ? "#bdbdbd" : "#e0e0e0" 
+                radius: 4
+                border.color: "#9e9e9e" // Darker grey border for definition
+                border.width: 1
+            }
+        }
+
+        Button {
+            id: resetButton
+            objectName: "resetButton"
+            text: qsTr("Reset")
+            x: 183
+            y: 65 
+            width: 80
+            height: 30
+
+            contentItem: Text {
+                text: resetButton.text
+                font.pixelSize: 14
+                font.bold: true
+                color: "black"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            background: Rectangle {
+                color: resetButton.down ? "#bdbdbd" : "#e0e0e0" 
+                radius: 4
+                border.color: "#9e9e9e" // Darker grey border for definition
+                border.width: 1
+            }
+        }
+
         Text {
             id: xAxisLabel
             text: qsTr("Time (seconds)")
@@ -47,7 +98,6 @@ Window {
             anchors.horizontalCenter: graph.horizontalCenter
         }
 
-        // y-axis label
         Text {
             id: yAxisLabel
             text: qsTr("Speed (RPM)")
@@ -134,7 +184,7 @@ Window {
                 max: 600
             }
 
-            SplineSeries {
+            LineSeries {
                 id: speedGraphData
                 objectName: "speedGraphData"
                 color: "red"
