@@ -4,8 +4,7 @@ import time
 import os
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQml import QQmlApplicationEngine
-from PyQt6.QtCore import QObject, QUrl
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QObject, QUrl, QTimer, QPointF
 from PyQt6.QtGraphs import QSplineSeries, QLineSeries
 
 SIMULATION_MODE = True
@@ -27,6 +26,9 @@ else:
 setpoint = 300
 initializeTime = time.time()
 sliderCooldown = initializeTime
+speedPointsBuffer = []
+setpointPointsBuffer = []
+MAX_BUFFER_SIZE = 100  
 
 # Create windows application
 app = QGuiApplication(sys.argv)
@@ -114,29 +116,29 @@ def onSliderMoved():
         sendCommand(str(setpoint))
 
 def addGraphData(new_data, destination):
-    if isinstance(new_data, tuple) and isinstance(new_data[0], (int, float)) and isinstance(new_data[1], (int, float)):
+    global speedGraphData, setpointGraphData, graphAxisX
+
+    if isinstance(new_data, tuple):
+        x, y = new_data
+        new_point = QPointF(x, y)
+
         match destination:
             case "speed":
-                speedGraphData.append(new_data[0], new_data[1])
+                speedPointsBuffer.append(new_point)
+                if len(speedPointsBuffer) > MAX_BUFFER_SIZE:
+                    speedPointsBuffer.pop(0)
+                speedGraphData.replace(speedPointsBuffer)
             case "setpoint":
-                setpointGraphData.append(new_data[0], new_data[1])
+                setpointPointsBuffer.append(new_point)
+                if len(setpointPointsBuffer) > MAX_BUFFER_SIZE:
+                    setpointPointsBuffer.pop(0)
+                setpointGraphData.replace(setpointPointsBuffer)
             case _:
                 print("Invalid destination for graph data. Data not added to graph.")
-    elif isinstance(new_data, list) and all(isinstance(data, tuple) and isinstance(data[0], (int, float)) and isinstance(data[1], (int, float)) for data in new_data):
-        for data in new_data:
-            match destination:
-                case "speed":
-                    speedGraphData.append(data[0], data[1])
-                case "setpoint":
-                    setpointGraphData.append(data[0], data[1])
-                case _:
-                    print("Invalid destination for graph data. Data not added to graph.")
-    else:
-        print("Invalid data format for graph. Data should be a list of X,Y or a single X,Y.")
     
     # Scale x-axis to show last 30 seconds of data
     graphAxisX.setProperty("max", time.time() - initializeTime + 5)
-    if time.time() - initializeTime > 15:
+    if time.time() - initializeTime > 10:
         graphAxisX.setProperty("min", time.time() - initializeTime - 10)  
 
 def updateGains(kp, ki, kd):
