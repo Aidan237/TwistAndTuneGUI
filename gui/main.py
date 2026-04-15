@@ -64,7 +64,9 @@ def updateSerial():
         import random
         data = random.randint(0, 600)
         print("Simulated data:", data)
-        addGraphData((time.time() - initializeTime, data))
+
+        addGraphData((time.time() - initializeTime, data), "speed")
+        addGraphData((time.time() - initializeTime, setpoint), "setpoint")
 
         speedText = root.findChild(QObject, "speedText")
 
@@ -83,8 +85,9 @@ def updateSerial():
         print("Received data from Arduino:", data)
         dataValues = getDataFromSerial(data)
 
-        # Add latest speed output to graph
-        addGraphData((time.time() - initializeTime, dataValues[0]))
+        # Add latest speed output and setpoint to graph
+        addGraphData((time.time() - initializeTime, dataValues[0]), "speed")
+        addGraphData((time.time() - initializeTime, dataValues[1]), "setpoint")
 
         # Update speed and gain text
         speedText.setProperty("text", "Actual Speed: " + str(dataValues[0]) + "rpm")
@@ -114,12 +117,24 @@ def onSliderMoved():
         sliderCooldown = time.time()
         sendCommand("S" + str(setpoint))
 
-def addGraphData(new_data):
+def addGraphData(new_data, destination):
     if isinstance(new_data, tuple) and isinstance(new_data[0], (int, float)) and isinstance(new_data[1], (int, float)):
-        speedGraphData.append(new_data[0], new_data[1])
+        match destination:
+            case "speed":
+                speedGraphData.append(new_data[0], new_data[1])
+            case "setpoint":
+                setpointGraphData.append(new_data[0], new_data[1])
+            case _:
+                print("Invalid destination for graph data. Data not added to graph.")
     elif isinstance(new_data, list) and all(isinstance(data, tuple) and isinstance(data[0], (int, float)) and isinstance(data[1], (int, float)) for data in new_data):
         for data in new_data:
-            speedGraphData.append(data[0], data[1])
+            match destination:
+                case "speed":
+                    speedGraphData.append(data[0], data[1])
+                case "setpoint":
+                    setpointGraphData.append(data[0], data[1])
+                case _:
+                    print("Invalid destination for graph data. Data not added to graph.")
     else:
         print("Invalid data format for graph. Data should be a list of X,Y or a single X,Y.")
     
