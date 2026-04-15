@@ -33,6 +33,34 @@ Window {
             value: 0.5
         }
 
+        // x-axis label
+        Text {
+            id: xAxisLabel
+            text: qsTr("Time (seconds)")
+            font.pixelSize: 18
+            font.bold: true
+            color: "#333333"
+            
+            // Positioned centered under the graph
+            anchors.top: graph.bottom
+            anchors.topMargin: 10 
+            anchors.horizontalCenter: graph.horizontalCenter
+        }
+
+        // y-axis label
+        Text {
+            id: yAxisLabel
+            text: qsTr("Speed (RPM)")
+            font.pixelSize: 18
+            font.bold: true
+            color: "#333333"
+            
+            rotation: -90
+            anchors.right: graph.left
+            anchors.rightMargin: -20
+            anchors.verticalCenter: graph.verticalCenter
+        }
+
         Text {
             id: setpointText
             objectName: "setpointText"
