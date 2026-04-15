@@ -6,7 +6,7 @@ from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtCore import QTimer
-from PyQt6.QtGraphs import QSplineSeries
+from PyQt6.QtGraphs import QSplineSeries, QLineSeries
 
 SIMULATION_MODE = True
 
@@ -47,7 +47,7 @@ setpoint_slider = root.findChild(QObject, "setpointSlider")
 setpoint_text = root.findChild(QObject, "setpointText")
 graph = root.findChild(QObject, "graph")
 speedGraphData = graph.findChild(QSplineSeries, "speedGraphData")
-setpointGraphData = graph.findChild(QSplineSeries, "setpointGraphData")
+setpointGraphData = graph.findChild(QLineSeries, "setpointGraphData")
 graphAxisX = graph.findChild(QObject, "graphAxisX")
 speedText = root.findChild(QObject, "speedText")
 kpText = root.findChild(QObject, "kpText")
