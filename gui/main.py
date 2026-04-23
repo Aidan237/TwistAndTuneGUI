@@ -1,15 +1,23 @@
 import sys
 import serial
 import time
-import os
-from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtQml import QQmlApplicationEngine
-from PyQt6.QtCore import QObject, QUrl, QTimer, QPointF
-from PyQt6.QtGraphs import QSplineSeries, QLineSeries
+from PyQt6.QtWidgets import QApplication, QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QPushButton
+from PyQt6.QtCore import Qt, QTimer
 import pyqtgraph as pg
+import OpenGL
 
+# DEPENDENCIES:
+# pip install pyqt6 pyqtgraph pyserial pyopengl
+
+# Configuration
 SIMULATION_MODE = True
+MAX_BUFFER_SIZE = 1000
 
+# Global Variables
+setpoint = 300
+initializeTime = time.time()
+
+# Serial Connection Setup
 if not SIMULATION_MODE:
     try:
         com = 'COM5'
@@ -23,49 +31,10 @@ if not SIMULATION_MODE:
 else:
     ser = None
 
-# System configiguration
-os.environ["QT_QUICK_CONTROLS_STYLE"] = "Fusion"
-
-# Define local variables here
-setpoint = 300
-initializeTime = time.time()
-sliderCooldown = initializeTime
-speedPointsBuffer = []
-setpointPointsBuffer = []
-MAX_BUFFER_SIZE = 100  
-
-# Create windows application
-app = QGuiApplication(sys.argv)
-
-# Create instance of Qt engine to handle UI elements
-current_dir = os.path.dirname(os.path.abspath(__file__))
-qml_path = os.path.join(current_dir, "MainWindow.qml")
-engine = QQmlApplicationEngine()
-engine.load(QUrl.fromLocalFile(qml_path))
-
-# Check that UI loaded properly
-if not engine.rootObjects():
-    sys.exit(-1)
-
-# Define objects from qml code
-root = engine.rootObjects()[0]
-setpoint_slider = root.findChild(QObject, "setpointSlider")
-setpoint_text = root.findChild(QObject, "setpointText")
-reset_button = root.findChild(QObject, "resetButton")
-graph = root.findChild(QObject, "graph")
-speedGraphData = graph.findChild(QLineSeries, "speedGraphData")
-setpointGraphData = graph.findChild(QLineSeries, "setpointGraphData")
-graphAxisX = graph.findChild(QObject, "graphAxisX")
-speedText = root.findChild(QObject, "speedText")
-kpText = root.findChild(QObject, "kpText")
-kiText = root.findChild(QObject, "kiText")
-kdText = root.findChild(QObject, "kdText")
-
-
-# Define functions
-
+# Functions
 def updateSerial():
     global ser
+    global window
     global SIMULATION_MODE
 
     if SIMULATION_MODE:
@@ -73,14 +42,8 @@ def updateSerial():
         data = random.randint(30, 570)
         print("Simulated data:", data)
 
-        addGraphData((time.time() - initializeTime, data), "speed")
-        addGraphData((time.time() - initializeTime, setpoint), "setpoint")
-
-        global speedText
-        speedText = root.findChild(QObject, "speedText")
-
-        if speedText:
-            speedText.setProperty("text", "Actual Speed: " + str(data) + "rpm")
+        window.update_plots(time.time() - initializeTime, data, setpoint)
+        window.speed_label.setText("Actual Speed: " + str(data) + "rpm")
 
         return
     
@@ -95,14 +58,11 @@ def updateSerial():
         dataValues = getDataFromSerial(data)
 
         # Add latest speed output and setpoint to graph
-        addGraphData((time.time() - initializeTime, dataValues[0]), "speed")
-        addGraphData((time.time() - initializeTime, dataValues[1]), "setpoint")
+        window.update_plots(time.time() - initializeTime, dataValues[0], dataValues[1])
 
         # Update speed and gain text
-        speedText.setProperty("text", "Actual Speed: " + str(dataValues[0]) + "rpm")
-        kpText.setProperty("text", "Kp: " + str(dataValues[1])) 
-        kiText.setProperty("text", "Ki: " + str(dataValues[2]))
-        kdText.setProperty("text","Kd: " + str(dataValues[3]))
+        window.speed_label.setText("Actual Speed: " + str(dataValues[0]) + "rpm")
+        window.update_gains(dataValues[1], dataValues[2], dataValues[3])
 
         return
 
@@ -111,76 +71,182 @@ def getDataFromSerial(data):
         return [float(x) for x in data.split(',')]
     except:
         return []
-
-def onSliderMoved():
-    global setpoint, sliderCooldown
-    setpoint = int(600 * setpoint_slider.property("value"))
-    setpoint_text.setProperty("text", "Target Speed: " + str(setpoint) + "rpm")
-    if time.time() - sliderCooldown > 0.5:  # Limit how often we send commands to avoid overwhelming serial
-        sliderCooldown = time.time()
-        sendCommand(str(setpoint))
-
-def addGraphData(new_data, destination):
-    global speedGraphData, setpointGraphData, graphAxisX
-
-    if isinstance(new_data, tuple):
-        x, y = new_data
-        new_point = QPointF(x, y)
-
-        match destination:
-            case "speed":
-                speedPointsBuffer.append(new_point)
-                if len(speedPointsBuffer) > MAX_BUFFER_SIZE:
-                    speedPointsBuffer.pop(0)
-                speedGraphData.replace(speedPointsBuffer)
-            case "setpoint":
-                setpointPointsBuffer.append(new_point)
-                if len(setpointPointsBuffer) > MAX_BUFFER_SIZE:
-                    setpointPointsBuffer.pop(0)
-                setpointGraphData.replace(setpointPointsBuffer)
-            case _:
-                print("Invalid destination for graph data. Data not added to graph.")
     
-    # Scale x-axis to show last 30 seconds of data
-    graphAxisX.setProperty("max", time.time() - initializeTime + 5)
-    if time.time() - initializeTime > 10:
-        graphAxisX.setProperty("min", time.time() - initializeTime - 10)  
-
-def updateGains(kp, ki, kd):
-    kpText.setProperty("text", "Kp: " + str(kp))
-    kiText.setProperty("text", "Ki: " + str(ki))
-    kdText.setProperty("text", "Kd: " + str(kd))
-
 def sendCommand(command):
     if SIMULATION_MODE or ser is None:
         return
     
     ser.write((command + '\n').encode('utf-8'))
 
-def onResetClicked():
-    global initializeTime, speedPointsBuffer, setpointPointsBuffer
-    initializeTime = time.time()
-    speedPointsBuffer.clear()
-    setpointPointsBuffer.clear()
-    speedGraphData.replace(speedPointsBuffer)
-    setpointGraphData.replace(setpointPointsBuffer)
-    graphAxisX.setProperty("min", 0)
-    graphAxisX.setProperty("max", 10)
+# UI Application Setup
+class Dashboard(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Twist & Tune GUI")
+        self.resize(1000, 600)
 
-# Connect signals to functions
-if setpoint_slider:
-    setpoint_slider.valueChanged.connect(onSliderMoved)
-else:
-    print("Setpoint slider not intialized.")
+        # Main Widget
+        self.main_widget = QWidget()
+        self.setCentralWidget(self.main_widget)
+        self.layout = QVBoxLayout(self.main_widget)
+        self.layout.setContentsMargins(20, 10, 20, 10)
+        self.main_widget.setStyleSheet('background-color: white;')
 
-if reset_button:
-    reset_button.clicked.connect(onResetClicked)
-else:
-    print("Reset button not initialized.")
+        # Title
+        self.title_label = QLabel("Twist & Tune")
+        self.title_label.setStyleSheet('color: black; font-size: 48px; font-weight: bold;')
+        self.layout.addWidget(self.title_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-timer = QTimer()
-timer.timeout.connect(updateSerial)
-timer.start(100)  # Check for new serial data every 100ms
+        # Top Buttons
+        button_style = """
+            QPushButton {
+                background-color: #f5f5f5;      
+                color: black;
+                border: 1px solid #9e9e9e;
+                border-radius: 4px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #eeeeee;      
+                border: 1px solid #757575;      
+            }
+            QPushButton:pressed {
+                background-color: #bdbdbd;      
+                border: 2px solid #757575;      
+            }
+        """
 
-# Exit program when user closes window
-sys.exit(app.exec())
+        self.button_layout = QHBoxLayout()
+        self.button_layout.addSpacing(30)
+
+        self.button_settings = QPushButton("Settings")
+        self.button_settings.setFixedSize(100, 30)
+        self.button_settings.setStyleSheet(button_style)
+        self.button_layout.addWidget(self.button_settings)
+
+        self.button_reset = QPushButton("Reset")
+        self.button_reset.setFixedSize(100, 30)
+        self.button_reset.setStyleSheet(button_style)
+        self.button_layout.addWidget(self.button_reset)
+        self.button_reset.clicked.connect(self.on_reset_pressed)
+
+        self.button_layout.addStretch()
+        self.layout.addLayout(self.button_layout)
+        self.layout.addSpacing(20)
+
+        # Graph Setup
+        self.graph = pg.PlotWidget(useopengl=True)
+        self.graph.setBackground('w')
+        self.graph.showGrid(x=True, y=True)
+        axis_label_style = {'color': 'black', 'font-size': '16pt'}
+        self.graph.setLabel('left', 'Speed', units='RPM', **axis_label_style)
+        self.graph.setLabel('bottom', 'Time', units='s', **axis_label_style)
+        self.graph.getAxis('left').setPen(color='k', width=1)
+        self.graph.getAxis('bottom').setPen(color='k', width=1)
+        self.graph.getAxis('left').setTextPen('k')
+        self.graph.getAxis('bottom').setTextPen('k')
+
+        # Set axis ranges
+        self.graph.setYRange(0, 600, padding=0.05) 
+        self.graph.setXRange(0, 12)
+
+        # Create line plots
+        self.speed_plot = self.graph.plot(pen=pg.mkPen('r', width=2), name="Actual", antialias=True)
+        self.setpoint_plot = self.graph.plot(pen=pg.mkPen('b', width=2), name="Setpoint", antialias=True)
+        
+        self.layout.addWidget(self.graph)
+
+        # Add UI Elements
+        self.speed_label = QLabel("Actual Speed: 0 rpm")
+        self.speed_label.setStyleSheet('color: black; font-size: 24px;')
+        self.layout.addWidget(self.speed_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        self.gain_label = QLabel("Kp: 1.0, Ki: 1.0, Kd: 1.0")
+        self.gain_label.setStyleSheet('color: black; font-size: 16px;')
+        self.layout.addWidget(self.gain_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # Add Setpoint Slider
+        slider_style = """
+            QSlider::groove:horizontal {
+                border: 1px solid #bbb;
+                height: 10px;
+                background: #00b1a;
+                margin: 2px 0;
+                border-radius: 4px;
+            }
+
+            QSlider::handle:horizontal {
+                background: #007bff;   
+                border: 1px solid #0056b3;
+                width: 18px;
+                height: 18px;
+                margin: -5px 0;        
+                border-radius: 3px;    
+            }
+
+            QSlider::handle:horizontal:hover {
+                background: #0056b3;   
+            }
+        """
+
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setRange(0, 600)
+        self.slider.setValue(300)
+        self.slider.setStyleSheet(slider_style)
+        self.layout.addWidget(self.slider)
+        self.slider.valueChanged.connect(self.on_slider_change)
+
+        # Buffers
+        self.x_data = []
+        self.y_speed = []
+        self.y_setpoint = []
+
+    def on_slider_change(self, value):
+        global setpoint
+        setpoint = value
+        # Trigger your serial send logic here...
+
+    def on_reset_pressed(self):
+        global initializeTime
+        initializeTime = time.time()
+        self.x_data.clear()
+        self.y_speed.clear()
+        self.y_setpoint.clear()
+        self.graph.setXRange(0, 12)
+
+    def update_gains(self, kp, ki, kd):
+        self.gain_label.setText("Kp: " + str(kp) + ", Ki: " + str(ki) + ", Kd: " + str(kd))
+
+    def update_plots(self, t, speed, setpoint):
+        global MAX_BUFFER_SIZE
+        # Append data
+        self.x_data.append(t)
+        self.y_speed.append(speed)
+        self.y_setpoint.append(setpoint)
+
+        # Keep buffer size
+        if len(self.x_data) > MAX_BUFFER_SIZE:
+            self.x_data.pop(0)
+            self.y_speed.pop(0)
+            self.y_setpoint.pop(0)
+
+        # Update the lines
+        self.speed_plot.setData(self.x_data, self.y_speed)
+        self.setpoint_plot.setData(self.x_data, self.y_setpoint)
+        
+        # Scroll X-axis automatically
+        if t > 10:
+            self.graph.setXRange(t - 10, t + 2)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    
+    window = Dashboard()
+    window.show()
+
+    timer = QTimer()
+    timer.timeout.connect(updateSerial)
+    timer.start(100) # 10Hz update rate
+
+    sys.exit(app.exec())
