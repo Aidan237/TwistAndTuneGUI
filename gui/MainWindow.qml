@@ -20,9 +20,9 @@ Window {
             font.family: "Tahoma"
             font.styleName: "Bold"
             font.pointSize: 36
-            anchors.verticalCenterOffset: -308
-            anchors.horizontalCenterOffset: 0
-            anchors.centerIn: parent
+            anchors.verticalCenterOffset: 50
+            anchors.horizontalCenter: graph.horizontalCenter
+            anchors.bottom: graph.top
         }
 
         Slider {
@@ -52,7 +52,7 @@ Window {
             }
 
             background: Rectangle {
-                color: resetButton.down ? "#bdbdbd" : "#e0e0e0" 
+                color: settingsButton.down ? "#bdbdbd" : "#e0e0e0" 
                 radius: 4
                 border.color: "#9e9e9e" // Darker grey border for definition
                 border.width: 1
