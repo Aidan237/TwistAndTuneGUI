@@ -6,6 +6,7 @@ from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtCore import QObject, QUrl, QTimer, QPointF
 from PyQt6.QtGraphs import QSplineSeries, QLineSeries
+import pyqtgraph as pg
 
 SIMULATION_MODE = True
 
