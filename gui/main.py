@@ -124,6 +124,7 @@ class Dashboard(QMainWindow):
         self.button_settings.setFixedSize(100, 30)
         self.button_settings.setStyleSheet(button_style)
         self.button_layout.addWidget(self.button_settings)
+        self.button_settings.clicked.connect(self.on_settings_pressed)
 
         self.button_reset = QPushButton("Reset")
         self.button_reset.setFixedSize(100, 30)
@@ -171,18 +172,18 @@ class Dashboard(QMainWindow):
             QSlider::groove:horizontal {
                 border: 1px solid #bbb;
                 height: 10px;
-                background: #00b1a;
+                background: #f0f0f0;
                 margin: 2px 0;
                 border-radius: 4px;
             }
 
             QSlider::handle:horizontal {
-                background: #007bff;   
-                border: 1px solid #0056b3;
+                background: #ffffff;   
+                border: 1px solid #9e9e9e;
                 width: 18px;
                 height: 18px;
                 margin: -5px 0;        
-                border-radius: 3px;    
+                border-radius: 1px;    
             }
 
             QSlider::handle:horizontal:hover {
@@ -205,7 +206,6 @@ class Dashboard(QMainWindow):
     def on_slider_change(self, value):
         global setpoint
         setpoint = value
-        # Trigger your serial send logic here...
 
     def on_reset_pressed(self):
         global initializeTime
@@ -214,36 +214,56 @@ class Dashboard(QMainWindow):
         self.y_speed.clear()
         self.y_setpoint.clear()
         self.graph.setXRange(0, 12)
+    
+    def on_settings_pressed(self):
+        global settings_window
+        if settings_window.isVisible():
+            settings_window.hide()
+        else:
+            settings_window.show()
 
     def update_gains(self, kp, ki, kd):
         self.gain_label.setText("Kp: " + str(kp) + ", Ki: " + str(ki) + ", Kd: " + str(kd))
 
     def update_plots(self, t, speed, setpoint):
         global MAX_BUFFER_SIZE
-        # Append data
+
         self.x_data.append(t)
         self.y_speed.append(speed)
         self.y_setpoint.append(setpoint)
 
-        # Keep buffer size
+        # Limit buffer size
         if len(self.x_data) > MAX_BUFFER_SIZE:
             self.x_data.pop(0)
             self.y_speed.pop(0)
             self.y_setpoint.pop(0)
 
-        # Update the lines
         self.speed_plot.setData(self.x_data, self.y_speed)
         self.setpoint_plot.setData(self.x_data, self.y_setpoint)
         
-        # Scroll X-axis automatically
+        # Scroll x-axis
         if t > 10:
             self.graph.setXRange(t - 10, t + 2)
+
+class SettingsWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Settings")
+        self.resize(400, 300)
+
+        # Main Widget
+        self.main_widget = QWidget()
+        self.setCentralWidget(self.main_widget)
+        self.layout = QVBoxLayout(self.main_widget)
+        self.layout.setContentsMargins(20, 10, 20, 10)
+        self.main_widget.setStyleSheet('background-color: white;')
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     window = Dashboard()
     window.show()
+    settings_window = SettingsWindow()
 
     timer = QTimer()
     timer.timeout.connect(updateSerial)
