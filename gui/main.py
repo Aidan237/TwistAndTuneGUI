@@ -1,7 +1,8 @@
 import sys
 import serial
+import math
 import time
-from PyQt6.QtWidgets import QApplication, QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QPushButton
+from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QPushButton, QSpinBox
 from PyQt6.QtCore import Qt, QTimer
 import pyqtgraph as pg
 import OpenGL
@@ -12,10 +13,16 @@ import OpenGL
 # Configuration
 SIMULATION_MODE = True
 MAX_BUFFER_SIZE = 1000
+MAX_SUPPORTED_RPM = 600
+SETPOINT_MODE = "slider" # Options: slider, step, sine, triangle
 
 # Global Variables
 setpoint = 300
-initializeTime = time.time()
+speed = 0
+initialize_time = time.time()
+setpoint_max = MAX_SUPPORTED_RPM
+setpoint_min = 0
+setpoint_period = 5
 
 # Serial Connection Setup
 if not SIMULATION_MODE:
@@ -35,6 +42,8 @@ else:
 def updateSerial():
     global ser
     global window
+    global speed
+    global setpoint
     global SIMULATION_MODE
 
     if SIMULATION_MODE:
@@ -42,8 +51,8 @@ def updateSerial():
         data = random.randint(30, 570)
         print("Simulated data:", data)
 
-        window.update_plots(time.time() - initializeTime, data, setpoint)
         window.speed_label.setText("Actual Speed: " + str(data) + "rpm")
+        speed = data
 
         return
     
@@ -57,8 +66,12 @@ def updateSerial():
         print("Received data from Arduino:", data)
         dataValues = getDataFromSerial(data)
 
-        # Add latest speed output and setpoint to graph
-        window.update_plots(time.time() - initializeTime, dataValues[0], dataValues[1])
+        # Send setpoint command to Arduino
+        sendCommand(str(int(setpoint)))
+
+        # Save latest speed and setpoint values for next graph update
+        speed = dataValues[0]
+        setpoint = dataValues[1]
 
         # Update speed and gain text
         window.speed_label.setText("Actual Speed: " + str(dataValues[0]) + "rpm")
@@ -84,6 +97,9 @@ class Dashboard(QMainWindow):
         super().__init__()
         self.setWindowTitle("Twist & Tune GUI")
         self.resize(1000, 600)
+
+        # Attach settings window
+        self.settings_window = SettingsWindow(self)
 
         # Main Widget
         self.main_widget = QWidget()
@@ -118,13 +134,13 @@ class Dashboard(QMainWindow):
         """
 
         self.button_layout = QHBoxLayout()
-        self.button_layout.addSpacing(30)
+        self.button_layout.addStretch()
 
-        self.button_settings = QPushButton("Settings")
-        self.button_settings.setFixedSize(100, 30)
-        self.button_settings.setStyleSheet(button_style)
-        self.button_layout.addWidget(self.button_settings)
-        self.button_settings.clicked.connect(self.on_settings_pressed)
+        self.button_slider = QPushButton("Settings")
+        self.button_slider.setFixedSize(100, 30)
+        self.button_slider.setStyleSheet(button_style)
+        self.button_layout.addWidget(self.button_slider)
+        self.button_slider.clicked.connect(self.on_settings_pressed)
 
         self.button_reset = QPushButton("Reset")
         self.button_reset.setFixedSize(100, 30)
@@ -158,7 +174,7 @@ class Dashboard(QMainWindow):
         
         self.layout.addWidget(self.graph)
 
-        # Add UI Elements
+        # Add Gain/Speed Labels
         self.speed_label = QLabel("Actual Speed: 0 rpm")
         self.speed_label.setStyleSheet('color: black; font-size: 24px;')
         self.layout.addWidget(self.speed_label, alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -167,7 +183,234 @@ class Dashboard(QMainWindow):
         self.gain_label.setStyleSheet('color: black; font-size: 16px;')
         self.layout.addWidget(self.gain_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # Add Setpoint Slider
+        # Buffers
+        self.x_data = []
+        self.y_speed = []
+        self.y_setpoint = []
+
+    def on_reset_pressed(self):
+        global initialize_time
+        initialize_time = time.time()
+        self.x_data.clear()
+        self.y_speed.clear()
+        self.y_setpoint.clear()
+        self.graph.setXRange(0, 12)
+    
+    def on_settings_pressed(self):
+        if self.settings_window.isVisible():
+            self.settings_window.hide()
+        else:
+            self.settings_window.show()
+
+    def update_gains(self, kp, ki, kd):
+        self.gain_label.setText("Kp: " + str(kp) + ", Ki: " + str(ki) + ", Kd: " + str(kd))
+
+    def calculate_setpoint(self, t):
+        global setpoint, SETPOINT_MODE, setpoint_max, setpoint_min, setpoint_period
+
+        if SETPOINT_MODE == "step":
+            setpoint = setpoint_max if (t // setpoint_period) % 2 == 0 else setpoint_min
+        elif SETPOINT_MODE == "sine":
+            setpoint = (setpoint_max - setpoint_min) / 2 * (1 + math.sin(2 * math.pi * t / setpoint_period)) + setpoint_min
+        elif SETPOINT_MODE == "triangle":
+            cycle_time = t % (2 * setpoint_period)
+            if cycle_time < setpoint_period:
+                setpoint = (setpoint_max - setpoint_min) / setpoint_period * cycle_time + setpoint_min
+            else:
+                setpoint = (setpoint_max - setpoint_min) / setpoint_period * (2 * setpoint_period - cycle_time) + setpoint_min
+
+    def update_plots(self):
+        global initialize_time, speed, setpoint, MAX_BUFFER_SIZE
+        t = time.time() - initialize_time  
+
+        self.calculate_setpoint(t)
+
+        self.x_data.append(t)
+        self.y_speed.append(speed)
+        self.y_setpoint.append(setpoint)
+
+        # Limit buffer size
+        if len(self.x_data) > MAX_BUFFER_SIZE:
+            self.x_data.pop(0)
+            self.y_speed.pop(0)
+            self.y_setpoint.pop(0)
+
+        self.speed_plot.setData(self.x_data, self.y_speed)
+        self.setpoint_plot.setData(self.x_data, self.y_setpoint)
+        
+        # Scroll x-axis
+        if t > 10:
+            self.graph.setXRange(t - 10, t + 2)
+
+class SettingsWindow(QMainWindow):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        self.resize(400, 300)
+
+        # Main Widget
+        self.main_widget = QWidget()
+        self.setCentralWidget(self.main_widget)
+        self.layout = QVBoxLayout(self.main_widget)
+        self.layout.setContentsMargins(20, 10, 20, 10)
+        self.main_widget.setStyleSheet('background-color: white;')
+
+        # Title Text
+        self.title_label = QLabel("Settings")
+        self.title_label.setStyleSheet('color: black; font-size: 36px; font-weight: bold;')
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.layout.addWidget(self.title_label)
+        self.layout.addSpacing(10)
+
+        # Setpoint Mode Buttons
+        button_style = """
+            QPushButton {
+                background-color: #f5f5f5;      
+                color: black;
+                border: 1px solid #9e9e9e;
+                border-radius: 4px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #eeeeee;      
+                border: 1px solid #757575;      
+            }
+            QPushButton:pressed {
+                background-color: #bdbdbd;      
+                border: 2px solid #757575;      
+            }
+        """
+
+        self.button_layout = QHBoxLayout()
+        self.button_layout.addStretch()
+
+        self.button_slider = QPushButton("Slider")
+        self.button_slider.setFixedSize(100, 30)
+        self.button_slider.setStyleSheet(button_style)
+        self.button_layout.addWidget(self.button_slider)
+        self.button_slider.clicked.connect(lambda: self.on_setpoint_button_pressed("slider"))
+
+        self.button_step = QPushButton("Step")
+        self.button_step.setFixedSize(100, 30)
+        self.button_step.setStyleSheet(button_style)
+        self.button_layout.addWidget(self.button_step)
+        self.button_step.clicked.connect(lambda: self.on_setpoint_button_pressed("step"))
+
+        self.button_sine = QPushButton("Sine")
+        self.button_sine.setFixedSize(100, 30)
+        self.button_sine.setStyleSheet(button_style)
+        self.button_layout.addWidget(self.button_sine)
+        self.button_sine.clicked.connect(lambda: self.on_setpoint_button_pressed("sine"))
+
+        self.button_triangle = QPushButton("Triangle")
+        self.button_triangle.setFixedSize(100, 30)
+        self.button_triangle.setStyleSheet(button_style)
+        self.button_layout.addWidget(self.button_triangle)
+        self.button_triangle.clicked.connect(lambda: self.on_setpoint_button_pressed("triangle"))
+
+        self.button_layout.addStretch()
+        self.layout.addLayout(self.button_layout)
+        self.layout.addSpacing(20)
+
+        # Setpoint min/max/period settings
+        self.value_layout = QHBoxLayout()
+
+        self.min_label = QLabel("Min:")
+        self.min_label.setStyleSheet('color: black; font-size: 14px;')
+        self.value_layout.addWidget(self.min_label)
+        self.min_input = QSpinBox()
+        self.min_input.setStyleSheet('color: black; font-size: 14px;')
+        self.min_input.setRange(0, MAX_SUPPORTED_RPM)
+        self.min_input.setSingleStep(10)
+        self.min_input.setValue(setpoint_min)
+        self.min_input.valueChanged.connect(self.on_setpoint_value_change)
+        self.value_layout.addWidget(self.min_input)
+
+        self.max_label = QLabel("Max:")
+        self.max_label.setStyleSheet('color: black; font-size: 14px;')
+        self.value_layout.addWidget(self.max_label)
+        self.max_input = QSpinBox()
+        self.max_input.setStyleSheet('color: black; font-size: 14px;')
+        self.max_input.setRange(0, MAX_SUPPORTED_RPM)
+        self.max_input.setSingleStep(10)
+        self.max_input.setValue(setpoint_max)
+        self.max_input.valueChanged.connect(self.on_setpoint_value_change)
+        self.value_layout.addWidget(self.max_input)
+
+        self.period_label = QLabel("Period:")
+        self.period_label.setStyleSheet('color: black; font-size: 14px;')
+        self.value_layout.addWidget(self.period_label)
+        self.period_input = QDoubleSpinBox()
+        self.period_input.setStyleSheet('color: black; font-size: 14px;')
+        self.period_input.setRange(0.5, 20.0)
+        self.period_input.setSingleStep(0.25)
+        self.period_input.setValue(setpoint_period)
+        self.period_input.valueChanged.connect(self.on_setpoint_value_change)
+        self.value_layout.addWidget(self.period_input)
+
+        self.layout.addLayout(self.value_layout)
+        self.layout.addSpacing(20)
+
+        # Gain settings
+        self.gain_layout = QHBoxLayout()
+        self.gain_layout.addStretch()
+
+        self.kp_label = QLabel("Kp:")
+        self.kp_label.setStyleSheet('color: black; font-size: 14px;')
+        self.gain_layout.addWidget(self.kp_label)
+        self.kp_input = QDoubleSpinBox()
+        self.kp_input.setStyleSheet('color: black; font-size: 14px;')
+        self.kp_input.setRange(0.0, 10.0)
+        self.kp_input.setValue(1.0)
+        self.kp_input.setSingleStep(0.1)
+        self.kp_input.valueChanged.connect(self.on_gain_value_change)
+        self.gain_layout.addWidget(self.kp_input)
+
+        self.ki_label = QLabel("Ki:")
+        self.ki_label.setStyleSheet('color: black; font-size: 14px;')
+        self.gain_layout.addWidget(self.ki_label)
+        self.ki_input = QDoubleSpinBox()
+        self.ki_input.setStyleSheet('color: black; font-size: 14px;')
+        self.ki_input.setRange(0.0, 10.0)
+        self.ki_input.setValue(1.0)
+        self.ki_input.setSingleStep(0.1)
+        self.ki_input.valueChanged.connect(self.on_gain_value_change)
+        self.gain_layout.addWidget(self.ki_input)
+
+        self.kd_label = QLabel("Kd:")
+        self.kd_label.setStyleSheet('color: black; font-size: 14px;')
+        self.gain_layout.addWidget(self.kd_label)
+        self.kd_input = QDoubleSpinBox()
+        self.kd_input.setStyleSheet('color: black; font-size: 14px;')
+        self.kd_input.setRange(0.0, 10.0)
+        self.kd_input.setValue(1.0)
+        self.kd_input.setSingleStep(0.1)
+        self.kd_input.valueChanged.connect(self.on_gain_value_change)
+        self.gain_layout.addWidget(self.kd_input)
+
+        self.gain_layout.addStretch()
+        self.layout.addLayout(self.gain_layout)
+        self.layout.addSpacing(20)
+
+        # Slider Labels (min, title, max)
+        self.slider_label_layout = QHBoxLayout()
+        self.slider_label_min = QLabel("0")
+        self.slider_label_min.setStyleSheet('color: black; font-size: 14px;')
+        self.slider_label_layout.addWidget(self.slider_label_min, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        self.slider_label = QLabel("Setpoint")
+        self.slider_label.setStyleSheet('color: black; font-size: 22px; font-weight: bold;')
+        self.slider_label_layout.addWidget(self.slider_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        self.slider_label_max = QLabel(str(MAX_SUPPORTED_RPM))
+        self.slider_label_max.setStyleSheet('color: black; font-size: 14px;')
+        self.slider_label_layout.addWidget(self.slider_label_max, alignment=Qt.AlignmentFlag.AlignRight)
+
+        self.layout.addLayout(self.slider_label_layout)
+        self.layout.addSpacing(5)
+
+        # Setpoint Slider
         slider_style = """
             QSlider::groove:horizontal {
                 border: 1px solid #bbb;
@@ -198,75 +441,43 @@ class Dashboard(QMainWindow):
         self.layout.addWidget(self.slider)
         self.slider.valueChanged.connect(self.on_slider_change)
 
-        # Buffers
-        self.x_data = []
-        self.y_speed = []
-        self.y_setpoint = []
+        self.layout.addStretch() # Push elements to top
+
+    def on_setpoint_button_pressed(self, mode):
+        global SETPOINT_MODE
+        SETPOINT_MODE = mode
+    
+    def on_setpoint_value_change(self):
+        global setpoint_min, setpoint_max, setpoint_period
+        setpoint_min = self.min_input.value()
+        setpoint_max = self.max_input.value()
+        setpoint_period = self.period_input.value()
+
+    def on_gain_value_change(self):
+        kp = self.kp_input.value()
+        ki = self.ki_input.value()
+        kd = self.kd_input.value()
+
+        # TODO: Add support for gain command in Arduino code
+        sendCommand("G," + str(kp) + "," + str(ki) + "," + str(kd))
 
     def on_slider_change(self, value):
         global setpoint
-        setpoint = value
-
-    def on_reset_pressed(self):
-        global initializeTime
-        initializeTime = time.time()
-        self.x_data.clear()
-        self.y_speed.clear()
-        self.y_setpoint.clear()
-        self.graph.setXRange(0, 12)
-    
-    def on_settings_pressed(self):
-        global settings_window
-        if settings_window.isVisible():
-            settings_window.hide()
-        else:
-            settings_window.show()
-
-    def update_gains(self, kp, ki, kd):
-        self.gain_label.setText("Kp: " + str(kp) + ", Ki: " + str(ki) + ", Kd: " + str(kd))
-
-    def update_plots(self, t, speed, setpoint):
-        global MAX_BUFFER_SIZE
-
-        self.x_data.append(t)
-        self.y_speed.append(speed)
-        self.y_setpoint.append(setpoint)
-
-        # Limit buffer size
-        if len(self.x_data) > MAX_BUFFER_SIZE:
-            self.x_data.pop(0)
-            self.y_speed.pop(0)
-            self.y_setpoint.pop(0)
-
-        self.speed_plot.setData(self.x_data, self.y_speed)
-        self.setpoint_plot.setData(self.x_data, self.y_setpoint)
-        
-        # Scroll x-axis
-        if t > 10:
-            self.graph.setXRange(t - 10, t + 2)
-
-class SettingsWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Settings")
-        self.resize(400, 300)
-
-        # Main Widget
-        self.main_widget = QWidget()
-        self.setCentralWidget(self.main_widget)
-        self.layout = QVBoxLayout(self.main_widget)
-        self.layout.setContentsMargins(20, 10, 20, 10)
-        self.main_widget.setStyleSheet('background-color: white;')
+        if SETPOINT_MODE == "slider":
+            setpoint = value
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     window = Dashboard()
     window.show()
-    settings_window = SettingsWindow()
 
-    timer = QTimer()
-    timer.timeout.connect(updateSerial)
-    timer.start(100) # 10Hz update rate
+    timer_plot = QTimer()
+    timer_plot.timeout.connect(window.update_plots)
+    timer_plot.start(50) # Update plots every 50ms
+
+    timer_serial = QTimer()
+    timer_serial.timeout.connect(updateSerial)
+    timer_serial.start(100) # Poll serial every 100ms
 
     sys.exit(app.exec())
