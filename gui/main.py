@@ -324,6 +324,7 @@ class SettingsWindow(QMainWindow):
         self.min_input.setRange(0, MAX_SUPPORTED_RPM)
         self.min_input.setSingleStep(10)
         self.min_input.setValue(setpoint_min)
+        self.min_input.setToolTip("Set minimum setpoint value; only affects step, sine, and triangle modes.")
         self.min_input.valueChanged.connect(self.on_setpoint_value_change)
         self.value_layout.addWidget(self.min_input)
 
@@ -335,6 +336,7 @@ class SettingsWindow(QMainWindow):
         self.max_input.setRange(0, MAX_SUPPORTED_RPM)
         self.max_input.setSingleStep(10)
         self.max_input.setValue(setpoint_max)
+        self.max_input.setToolTip("Set maximum setpoint value; only affects step, sine, and triangle modes.")
         self.max_input.valueChanged.connect(self.on_setpoint_value_change)
         self.value_layout.addWidget(self.max_input)
 
@@ -346,6 +348,7 @@ class SettingsWindow(QMainWindow):
         self.period_input.setRange(0.5, 20.0)
         self.period_input.setSingleStep(0.25)
         self.period_input.setValue(setpoint_period)
+        self.period_input.setToolTip("Set setpoint period; only affects step, sine, and triangle modes.")
         self.period_input.valueChanged.connect(self.on_setpoint_value_change)
         self.value_layout.addWidget(self.period_input)
 
@@ -364,6 +367,7 @@ class SettingsWindow(QMainWindow):
         self.kp_input.setRange(0.0, 10.0)
         self.kp_input.setValue(1.0)
         self.kp_input.setSingleStep(0.1)
+        self.kp_input.setToolTip("Set proportional gain; only affects digital PID mode.")
         self.kp_input.valueChanged.connect(self.on_gain_value_change)
         self.gain_layout.addWidget(self.kp_input)
 
@@ -375,6 +379,7 @@ class SettingsWindow(QMainWindow):
         self.ki_input.setRange(0.0, 10.0)
         self.ki_input.setValue(1.0)
         self.ki_input.setSingleStep(0.1)
+        self.ki_input.setToolTip("Set integral gain; only affects digital PID mode.")
         self.ki_input.valueChanged.connect(self.on_gain_value_change)
         self.gain_layout.addWidget(self.ki_input)
 
@@ -386,6 +391,7 @@ class SettingsWindow(QMainWindow):
         self.kd_input.setRange(0.0, 10.0)
         self.kd_input.setValue(1.0)
         self.kd_input.setSingleStep(0.1)
+        self.kd_input.setToolTip("Set derivative gain; only affects digital PID mode.")
         self.kd_input.valueChanged.connect(self.on_gain_value_change)
         self.gain_layout.addWidget(self.kd_input)
 
