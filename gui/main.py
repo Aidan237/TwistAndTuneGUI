@@ -49,7 +49,6 @@ def updateSerial():
     if SIMULATION_MODE:
         import random
         data = random.randint(30, 570)
-        print("Simulated data:", data)
 
         window.speed_label.setText("Actual Speed: " + str(data) + "rpm")
         speed = data
@@ -86,6 +85,7 @@ def getDataFromSerial(data):
     
 def sendCommand(command):
     if SIMULATION_MODE or ser is None:
+        print("Simulated Serial Command: " + command)
         return
     
     ser.write((command + '\n').encode('utf-8'))
