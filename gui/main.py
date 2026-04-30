@@ -69,9 +69,8 @@ def updateSerial():
         # Send setpoint command to Arduino
         sendCommand(str(int(setpoint)))
 
-        # Save latest speed and setpoint values for next graph update
+        # Save latest speed value for next graph update
         speed = dataValues[0]
-        setpoint = dataValues[1]
 
         # Update speed and gain text
         window.speed_label.setText("Actual Speed: " + str(dataValues[0]) + "rpm")
