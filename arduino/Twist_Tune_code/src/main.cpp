@@ -60,7 +60,7 @@ void setup() {
   // Encoder pulse counter
   attachInterrupt(digitalPinToInterrupt(ENCODER_A), countPulses, RISING);
 
-  Serial.println("Enter Speed (1-600 RPM). Type * to reset.");
+  //Serial.println("Enter Speed (1-600 RPM). Type * to reset.");
 }
 
 void loop() {
@@ -80,10 +80,10 @@ void loop() {
         userSpeed = spd;
         savedSetPoint = spd;
         speedSet = true;
-        Serial.print("Setpoint: ");
-        Serial.println(userSpeed);
+        //Serial.print("Setpoint: ");
+        //Serial.println(userSpeed);
       } else {
-        Serial.println("Invalid. Enter 1–600.");
+        //Serial.println("Invalid. Enter 1–600.");
       }
 
       inputString = "";
@@ -91,29 +91,11 @@ void loop() {
     else if (c == '*') {   // Reset command
       speedSet = false;
       analogWrite(ERROR_VOUT, 0);
-      Serial.println("Reset. Enter new speed.");
+      // Serial.println("Reset. Enter new speed.");
       inputString = "";
-    }
-    else if (c == 't'){
-      stepToggle = !stepToggle;
-      stepStartTime = millis();
-      stepHigh = true;
     }
     else {
       inputString += c;
-    }
-  }
-
-  if (stepToggle) {
-    if (currentTime - stepStartTime >= (stepHigh ? STEP_HIGH : (STEP_PERIOD - STEP_HIGH))) {
-      stepStartTime = currentTime;
-      stepHigh = !stepHigh;
-
-      userSpeed = stepHigh ? savedSetPoint : 0;
-
-      noInterrupts();
-      pulses = 0; // Reset pulse count at each step change
-      interrupts();
     }
   }
 
@@ -160,13 +142,12 @@ void loop() {
 
     Serial.print(rpm);
     Serial.print(",");
-    Serial.print(Kp);
+    Serial.print(Kp, 3);
     Serial.print(",");
-    Serial.print(Ki);
+    Serial.print(Ki, 3);
     Serial.print(",");
-    Serial.println(Kd);
+    Serial.println(Kd, 3);
   }
-
 }
 
 void countPulses() {
