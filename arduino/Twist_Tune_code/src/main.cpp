@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <PID_v1.h>
 
 // Encoder input interrupt
 #define ENCODER_A 2
@@ -6,10 +7,10 @@
 // PWM output for error signal
 #define ERROR_VOUT 6
 
-#define PULSES_PER_REV 120
+// PWM output for digital PID
+#define PWM_OUT 5
 
-#define STEP_PERIOD 1000   // ms for one full step cycle (on + off)
-#define STEP_HIGH 500      // ms for high portion of step cycle
+#define PULSES_PER_REV 120
 
 // input pins
 const int VP_PIN = A0;   // P2 pin 5
@@ -40,9 +41,11 @@ const int NUM_SAMPLES = 10;
 
 double setPoint = 0;
 double savedSetPoint = 0;
-bool stepToggle = false;
-unsigned long stepStartTime = 0;
-bool stepHigh = false;
+double rpm = 0;
+double output = 0;
+double alpha = 0.3;
+
+double Kpd = 0.5, Kid = 0.5, Kdd = 0;
 
 float userSpeed = 0;
 bool speedSet = false;
@@ -51,11 +54,18 @@ volatile unsigned long pulses = 0;
 
 String inputString = "";         // a String to hold incoming data
 
+PID myPID(&rpm, &output, &setPoint, Kpd, Kid, Kdd, DIRECT);
+
 void setup() {
 
   pinMode(ERROR_VOUT, OUTPUT);
+  pinMode(PWM_OUT, OUTPUT);
 
   Serial.begin(9600);
+
+  myPID.SetMode(AUTOMATIC);
+  myPID.SetOutputLimits(0, 255);
+  myPID.SetSampleTime(100);  // 100 ms sample time
 
   // Encoder pulse counter
   attachInterrupt(digitalPinToInterrupt(ENCODER_A), countPulses, RISING);
@@ -67,33 +77,44 @@ void loop() {
   static unsigned long previousTimeSerial = 0;
   unsigned long currentTime = millis();
 
-  float rpm = 0;
-
   // 🔹 SERIAL INPUT HANDLER
   while (Serial.available()) {
     char c = Serial.read();
 
     if (c == '\n') {   // Enter pressed
-      int spd = inputString.toInt();
 
-      if (spd >= 1 && spd <= 600) {
-        userSpeed = spd;
-        savedSetPoint = spd;
-        speedSet = true;
-        //Serial.print("Setpoint: ");
-        //Serial.println(userSpeed);
-      } else {
-        //Serial.println("Invalid. Enter 1–600.");
+      if (inputString.startsWith("G,")){
+      // Expected format: G,123.45,67.89,0.12
+      int firstComma = inputString.indexOf(',', 2);
+      int secondComma = inputString.indexOf(',', firstComma + 1);
+
+      Kpd = inputString.substring(2, firstComma).toFloat();
+      Kid = inputString.substring(firstComma + 1, secondComma).toFloat();
+      Kdd = inputString.substring(secondComma + 1).toFloat();
+
+      myPID.SetTunings(Kpd, Kid, Kdd);
+
+      }
+      else{
+        int spd = inputString.toInt();
+        
+        if (spd >= 1 && spd <= 600) {
+          userSpeed = spd;
+          savedSetPoint = spd;
+          speedSet = true;
+          //Serial.print("Setpoint: ");
+          //Serial.println(userSpeed);
+        }
       }
 
       inputString = "";
     }
-    else if (c == '*') {   // Reset command
-      speedSet = false;
-      analogWrite(ERROR_VOUT, 0);
-      // Serial.println("Reset. Enter new speed.");
-      inputString = "";
-    }
+    // else if (c == '*') {   // Reset command
+    //   speedSet = false;
+    //   analogWrite(ERROR_VOUT, 0);
+    //   // Serial.println("Reset. Enter new speed.");
+    //   inputString = "";
+    // }
     else {
       inputString += c;
     }
@@ -110,6 +131,12 @@ void loop() {
     float rps = ((float)pulses / PULSES_PER_REV) / 0.1;
     rpm = rps * 60.0;
     pulses = 0;
+
+    setPoint = userSpeed;
+
+    myPID.Compute();
+    output = constrain(output, 0, 255);
+    analogWrite(PWM_OUT, (int)output);
 
     // 3. ERROR = SETPOINT - RPM → PWM OUTPUT
     float error = userSpeed - rpm;
@@ -158,7 +185,7 @@ float readAverage(int pin) {
   long sum = 0;
   for (int i = 0; i < NUM_SAMPLES; i++) {
     sum += analogRead(pin);
-    delay(2);
+    //delay(2);
   }
   return sum / float(NUM_SAMPLES);
 }
