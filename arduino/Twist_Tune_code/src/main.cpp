@@ -52,6 +52,8 @@ bool speedSet = false;
 
 volatile unsigned long pulses = 0;
 
+bool pidUpdate = false;
+
 String inputString = "";         // a String to hold incoming data
 
 PID myPID(&rpm, &output, &setPoint, Kpd, Kid, Kdd, DIRECT);
@@ -83,21 +85,11 @@ void loop() {
 
     if (c == '\n') {   // Enter pressed
 
-      if (inputString.startsWith("G,")){
-      // Expected format: G,123.45,67.89,0.12
-      int firstComma = inputString.indexOf(',', 2);
-      int secondComma = inputString.indexOf(',', firstComma + 1);
+      inputString.trim(); // Remove any whitespace
 
-      Kpd = inputString.substring(2, firstComma).toFloat();
-      Kid = inputString.substring(firstComma + 1, secondComma).toFloat();
-      Kdd = inputString.substring(secondComma + 1).toFloat();
-
-      myPID.SetTunings(Kpd, Kid, Kdd);
-
-      }
-      else{
-        int spd = inputString.toInt();
-        
+      if (inputString.startsWith("S")){
+      // Expected format: S123
+        float spd = inputString.substring(1).toFloat();
         if (spd >= 1 && spd <= 600) {
           userSpeed = spd;
           savedSetPoint = spd;
@@ -106,6 +98,28 @@ void loop() {
           //Serial.println(userSpeed);
         }
       }
+
+      else if (inputString.startsWith("P")){
+      // Expected format: P1.0
+      Kpd = inputString.substring(1).toFloat();
+      pidUpdate = true;
+      //myPID.SetTunings(Kpd, Kid, Kdd);
+      }
+
+      else if (inputString.startsWith("I")){
+      // Expected format: I1.0
+      Kid = inputString.substring(1).toFloat();
+      pidUpdate = true;
+      //myPID.SetTunings(Kpd, Kid, Kdd);
+      }
+
+      else if (inputString.startsWith("D")){
+      // Expected format: D1.0
+      Kdd = inputString.substring(1).toFloat();
+      pidUpdate = true;
+      //myPID.SetTunings(Kpd, Kid, Kdd);
+      }
+
 
       inputString = "";
     }
@@ -133,6 +147,11 @@ void loop() {
     pulses = 0;
 
     setPoint = userSpeed;
+
+    if (pidUpdate) {
+      myPID.SetTunings(Kpd, Kid, Kdd);
+      pidUpdate = false;
+    }
 
     myPID.Compute();
     output = constrain(output, 0, 255);
