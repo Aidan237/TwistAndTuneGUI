@@ -35,8 +35,8 @@ def sendCommand(command):
 # Serial Connection Setup
 if not SIMULATION_MODE:
     try:
-        com = 'COM3'
-        ser = serial.Serial(com, 9600) 
+        com = 'COM5'
+        ser = serial.Serial(com, 115200) 
         time.sleep(2)   #Wait for the serial connection to initialize
         print("Connected to Arduino on " + com)
         sendCommand("S" + str(int(setpoint))) # Send initial setpoint to Arduino
@@ -77,9 +77,14 @@ def updateSerial():
         # Read line of data from serial, decode, then split into list of floats
         #data = ser.readline().decode('utf-8').rstrip()
         data_lines = ser.read_all().decode('utf-8').splitlines()
-        if data_lines:
-            data = data_lines[-1]
-            data = data.rstrip()
+        residual_data += data_lines
+
+        lines = residual_data.split('\n')
+
+        residual_data = lines.pop()
+
+        if lines:
+            data = data_lines[-1].rstrip()
 
         print("Received data from Arduino:", data)
         dataValues = getDataFromSerial(data)
