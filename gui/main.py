@@ -10,7 +10,7 @@ import pyqtgraph as pg
 # pip install pyqt6 pyqtgraph pyserial pyopengl
 
 # Configuration
-SIMULATION_MODE = True
+SIMULATION_MODE = False
 MAX_BUFFER_SIZE = 1000
 MAX_SUPPORTED_RPM = 600
 SETPOINT_MODE = "slider" # Options: slider, step, sine, triangle
@@ -24,13 +24,22 @@ setpoint_max = MAX_SUPPORTED_RPM
 setpoint_min = 0
 setpoint_period = 5
 
+    
+def sendCommand(command):
+    print("Serial Command Sent: " + command)
+    if SIMULATION_MODE or ser is None:
+        return
+    
+    ser.write((command + '\n').encode('utf-8'))
+
 # Serial Connection Setup
 if not SIMULATION_MODE:
     try:
-        com = 'COM5'
+        com = 'COM3'
         ser = serial.Serial(com, 9600) 
         time.sleep(2)   #Wait for the serial connection to initialize
         print("Connected to Arduino on " + com)
+        sendCommand("S" + str(int(setpoint))) # Send initial setpoint to Arduino
     except:
         print("Failed to connect to Arduino. Switching to simulation mode.")
         SIMULATION_MODE = True
@@ -89,13 +98,6 @@ def getDataFromSerial(data):
         return [float(x) for x in data.split(',')]
     except:
         return []
-    
-def sendCommand(command):
-    if SIMULATION_MODE or ser is None:
-        print("Simulated Serial Command: " + command)
-        return
-    
-    ser.write((command + '\n').encode('utf-8'))
 
 # UI Application Setup
 class Dashboard(QMainWindow):
