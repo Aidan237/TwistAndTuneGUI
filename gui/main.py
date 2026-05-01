@@ -75,7 +75,11 @@ def updateSerial():
 
     if ser.in_waiting > 0:
         # Read line of data from serial, decode, then split into list of floats
-        data = ser.readline().decode('utf-8').rstrip()
+        #data = ser.readline().decode('utf-8').rstrip()
+        data_lines = ser.read_all().decode('utf-8').splitlines()
+        if data_lines:
+            data = data_lines[-1]
+
         print("Received data from Arduino:", data)
         dataValues = getDataFromSerial(data)
 
