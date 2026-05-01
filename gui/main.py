@@ -78,18 +78,19 @@ def updateSerial():
     if ser.in_waiting > 0:
         # Read line of data from serial, decode, then split into list of floats
         #data = ser.readline().decode('utf-8').rstrip()
-        data_lines = ser.read_all().decode('utf-8').splitlines()
-        residual_data += data_lines
+        raw_payload = ser.read(ser.in_waiting).decode('utf-8', errors='ignore')        
+        residual_data += raw_payload
 
-        lines = residual_data.split('\n')
+        if '\n' in residual_data:
+            lines = residual_data.split('\n')
+            residual_data = lines.pop()
+            latest_line = lines[-1].strip()
+            
+            if latest_line:
+                data = latest_line
+                print("Received data from Arduino:", data)
+                dataValues = getDataFromSerial(data)
 
-        residual_data = lines.pop()
-
-        if lines:
-            data = data_lines[-1].rstrip()
-
-        print("Received data from Arduino:", data)
-        dataValues = getDataFromSerial(data)
 
         # Send setpoint command to Arduino
         if setpoint != prev_setpoint:
