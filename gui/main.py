@@ -2,7 +2,7 @@ import sys
 import serial
 import math
 import time
-from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QPushButton, QSpinBox
+from PyQt6.QtWidgets import QApplication, QCheckBox, QDoubleSpinBox, QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QPushButton, QSpinBox
 from PyQt6.QtCore import Qt, QTimer
 import pyqtgraph as pg
 
@@ -10,7 +10,7 @@ import pyqtgraph as pg
 # pip install pyqt6 pyqtgraph pyserial pyopengl
 
 # Configuration
-SIMULATION_MODE = False
+SIMULATION_MODE = True
 MAX_BUFFER_SIZE = 1000
 MAX_SUPPORTED_RPM = 600
 SETPOINT_MODE = "slider" # Options: slider, step, sine, triangle
@@ -380,6 +380,14 @@ class SettingsWindow(QMainWindow):
         self.gain_layout = QHBoxLayout()
         self.gain_layout.addStretch()
 
+        self.digital_toggle = QCheckBox("")
+        self.digital_toggle.setStyleSheet('border: 1px solid #9e9e9e; padding: 2px;')
+        self.digital_toggle.setFixedSize(20, 20)
+        self.digital_toggle.setToolTip("Enable digital PID mode; needed for gain adjustments.")
+        self.digital_toggle.setChecked(False)
+        self.digital_toggle.stateChanged.connect(self.on_digital_toggle)
+        self.gain_layout.addWidget(self.digital_toggle)
+
         self.kp_label = QLabel("Kp:")
         self.kp_label.setStyleSheet('color: black; font-size: 14px;')
         self.gain_layout.addWidget(self.kp_label)
@@ -474,6 +482,12 @@ class SettingsWindow(QMainWindow):
         global SETPOINT_MODE
         SETPOINT_MODE = mode
     
+    def on_digital_toggle(self):
+        if self.digital_toggle.isChecked():
+            sendCommand("M1") # Enable digital PID mode
+        else:
+            sendCommand("M0") # Enable analog PID mode
+
     def on_setpoint_value_change(self):
         global setpoint_min, setpoint_max, setpoint_period
         setpoint_min = self.min_input.value()
