@@ -17,6 +17,7 @@ SETPOINT_MODE = "slider" # Options: slider, step, sine, triangle
 
 # Global Variables
 setpoint = 300
+prev_setpoint = 300
 speed = 0
 initialize_time = time.time()
 setpoint_max = MAX_SUPPORTED_RPM
@@ -43,6 +44,7 @@ def updateSerial():
     global window
     global speed
     global setpoint
+    global prev_setpoint
     global SIMULATION_MODE
 
     if SIMULATION_MODE:
@@ -51,6 +53,10 @@ def updateSerial():
 
         window.speed_label.setText("Actual Speed: " + str(data) + "rpm")
         speed = data
+
+        if setpoint != prev_setpoint:
+            sendCommand("S" + str(int(setpoint)))
+            prev_setpoint = setpoint
 
         return
     
@@ -65,7 +71,9 @@ def updateSerial():
         dataValues = getDataFromSerial(data)
 
         # Send setpoint command to Arduino
-        sendCommand(str(int(setpoint)))
+        if setpoint != prev_setpoint:
+            sendCommand("S" + str(int(setpoint)))
+            prev_setpoint = setpoint
 
         # Save latest speed value for next graph update
         speed = dataValues[0]
