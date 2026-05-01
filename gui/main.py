@@ -79,6 +79,7 @@ def updateSerial():
         data_lines = ser.read_all().decode('utf-8').splitlines()
         if data_lines:
             data = data_lines[-1]
+            data = data.rstrip()
 
         print("Received data from Arduino:", data)
         dataValues = getDataFromSerial(data)
