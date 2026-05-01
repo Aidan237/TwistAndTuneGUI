@@ -23,6 +23,7 @@ initialize_time = time.time()
 setpoint_max = MAX_SUPPORTED_RPM
 setpoint_min = 0
 setpoint_period = 5
+residual_data = ""
 
     
 def sendCommand(command):
@@ -54,6 +55,7 @@ def updateSerial():
     global speed
     global setpoint
     global prev_setpoint
+    global residual_data
     global SIMULATION_MODE
 
     if SIMULATION_MODE:
