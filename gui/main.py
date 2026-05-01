@@ -5,7 +5,6 @@ import time
 from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QPushButton, QSpinBox
 from PyQt6.QtCore import Qt, QTimer
 import pyqtgraph as pg
-import OpenGL
 
 # DEPENDENCIES:
 # pip install pyqt6 pyqtgraph pyserial pyopengl
@@ -18,6 +17,7 @@ SETPOINT_MODE = "slider" # Options: slider, step, sine, triangle
 
 # Global Variables
 setpoint = 300
+prev_setpoint = 300
 speed = 0
 initialize_time = time.time()
 setpoint_max = MAX_SUPPORTED_RPM
@@ -44,6 +44,7 @@ def updateSerial():
     global window
     global speed
     global setpoint
+    global prev_setpoint
     global SIMULATION_MODE
 
     if SIMULATION_MODE:
@@ -52,6 +53,10 @@ def updateSerial():
 
         window.speed_label.setText("Actual Speed: " + str(data) + "rpm")
         speed = data
+
+        if setpoint != prev_setpoint:
+            sendCommand("S" + str(int(setpoint)))
+            prev_setpoint = setpoint
 
         return
     
@@ -66,7 +71,9 @@ def updateSerial():
         dataValues = getDataFromSerial(data)
 
         # Send setpoint command to Arduino
-        sendCommand(str(int(setpoint)))
+        if setpoint != prev_setpoint:
+            sendCommand("S" + str(int(setpoint)))
+            prev_setpoint = setpoint
 
         # Save latest speed value for next graph update
         speed = dataValues[0]
@@ -367,7 +374,7 @@ class SettingsWindow(QMainWindow):
         self.kp_input.setValue(1.0)
         self.kp_input.setSingleStep(0.1)
         self.kp_input.setToolTip("Set proportional gain; only affects digital PID mode.")
-        self.kp_input.valueChanged.connect(self.on_gain_value_change)
+        self.kp_input.valueChanged.connect(lambda: self.on_gain_value_change("kp"))
         self.gain_layout.addWidget(self.kp_input)
 
         self.ki_label = QLabel("Ki:")
@@ -379,7 +386,7 @@ class SettingsWindow(QMainWindow):
         self.ki_input.setValue(1.0)
         self.ki_input.setSingleStep(0.1)
         self.ki_input.setToolTip("Set integral gain; only affects digital PID mode.")
-        self.ki_input.valueChanged.connect(self.on_gain_value_change)
+        self.ki_input.valueChanged.connect(lambda: self.on_gain_value_change("ki"))
         self.gain_layout.addWidget(self.ki_input)
 
         self.kd_label = QLabel("Kd:")
@@ -391,7 +398,7 @@ class SettingsWindow(QMainWindow):
         self.kd_input.setValue(1.0)
         self.kd_input.setSingleStep(0.1)
         self.kd_input.setToolTip("Set derivative gain; only affects digital PID mode.")
-        self.kd_input.valueChanged.connect(self.on_gain_value_change)
+        self.kd_input.valueChanged.connect(lambda: self.on_gain_value_change("kd"))
         self.gain_layout.addWidget(self.kd_input)
 
         self.gain_layout.addStretch()
@@ -458,13 +465,17 @@ class SettingsWindow(QMainWindow):
         setpoint_max = self.max_input.value()
         setpoint_period = self.period_input.value()
 
-    def on_gain_value_change(self):
-        kp = self.kp_input.value()
-        ki = self.ki_input.value()
-        kd = self.kd_input.value()
-
-        # TODO: Add support for gain command in Arduino code
-        sendCommand("G," + str(kp) + "," + str(ki) + "," + str(kd))
+    def on_gain_value_change(self, gain):
+        match gain:
+            case "kp":
+                kp = round(self.kp_input.value(), 1)
+                sendCommand("P" + str(kp))
+            case "ki":
+                ki = round(self.ki_input.value(), 1)
+                sendCommand("I" + str(ki))
+            case "kd":
+                kd = round(self.kd_input.value(), 1)
+                sendCommand("D" + str(kd))
 
     def on_slider_change(self, value):
         global setpoint
