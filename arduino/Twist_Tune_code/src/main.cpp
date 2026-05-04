@@ -54,6 +54,8 @@ volatile unsigned long pulses = 0;
 
 bool pidUpdate = false;
 
+bool digitalMode = false; //false = analog PID, true = digital PID
+
 String inputString = "";         // a String to hold incoming data
 
 PID myPID(&rpm, &output, &setPoint, Kpd, Kid, Kdd, DIRECT);
@@ -120,6 +122,19 @@ void loop() {
       //myPID.SetTunings(Kpd, Kid, Kdd);
       }
 
+      else if(inputString.startsWith("M")){
+        int mode = inputString.substring(1).toInt();
+
+        if (mode == 1) {
+          digitalMode = true;
+          //Serial.println("Digital mode enabled");
+        }
+        else {
+          digitalMode = false;
+          //Serial.println("Digital mode disabled");
+        }
+      }
+
 
       inputString = "";
     }
@@ -153,10 +168,6 @@ void loop() {
       pidUpdate = false;
     }
 
-    myPID.Compute();
-    output = constrain(output, 0, 255);
-    analogWrite(PWM_OUT, (int)output);
-
     // 3. ERROR = SETPOINT - RPM → PWM OUTPUT
     float error = userSpeed - rpm;
 
@@ -184,15 +195,33 @@ void loop() {
     float Ki = 1.0 / (Ri * C1_FARADS);
     float Kd = Rfd * C2_FARADS;
 
-    analogWrite(ERROR_VOUT, errorPWM);
+    if (!digitalMode){
+      // analog PID
+      analogWrite(PWM_OUT, 0); // Ensure digital PID output is off
+      analogWrite(ERROR_VOUT, errorPWM);
+      Serial.print(rpm);
+      Serial.print(",");
+      Serial.print(Kp, 3);
+      Serial.print(",");
+      Serial.print(Ki, 3);
+      Serial.print(",");
+      Serial.println(Kd, 3);
+    }
+    else {
+      // digital PID
+      analogWrite(ERROR_VOUT, 0); // Ensure analog error output is off
+      myPID.Compute();
+      output = constrain(output, 0, 255);
+      analogWrite(PWM_OUT, (int)output);
 
-    Serial.print(rpm);
-    Serial.print(",");
-    Serial.print(Kp, 3);
-    Serial.print(",");
-    Serial.print(Ki, 3);
-    Serial.print(",");
-    Serial.println(Kd, 3);
+      Serial.print(rpm);
+      Serial.print(",");
+      Serial.print(Kpd, 3);
+      Serial.print(",");
+      Serial.print(Kid, 3);
+      Serial.print(",");
+      Serial.println(Kdd, 3);
+    }
   }
 }
 
