@@ -519,6 +519,7 @@ class SettingsWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.aboutToQuit.connect(lambda: sendCommand("O")) # Tell microcontroller to turn off motor on exit
     
     window = Dashboard()
     window.show()
