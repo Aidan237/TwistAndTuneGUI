@@ -394,7 +394,7 @@ class SettingsWindow(QMainWindow):
         self.kp_input = QDoubleSpinBox()
         self.kp_input.setStyleSheet('color: black; font-size: 14px;')
         self.kp_input.setRange(0.0, 10.0)
-        self.kp_input.setValue(1.0)
+        self.kp_input.setValue(0.0)
         self.kp_input.setSingleStep(0.1)
         self.kp_input.setToolTip("Set proportional gain; only affects digital PID mode.")
         self.kp_input.valueChanged.connect(lambda: self.on_gain_value_change("kp"))
@@ -406,7 +406,7 @@ class SettingsWindow(QMainWindow):
         self.ki_input = QDoubleSpinBox()
         self.ki_input.setStyleSheet('color: black; font-size: 14px;')
         self.ki_input.setRange(0.0, 10.0)
-        self.ki_input.setValue(1.0)
+        self.ki_input.setValue(0.0)
         self.ki_input.setSingleStep(0.1)
         self.ki_input.setToolTip("Set integral gain; only affects digital PID mode.")
         self.ki_input.valueChanged.connect(lambda: self.on_gain_value_change("ki"))
@@ -418,7 +418,7 @@ class SettingsWindow(QMainWindow):
         self.kd_input = QDoubleSpinBox()
         self.kd_input.setStyleSheet('color: black; font-size: 14px;')
         self.kd_input.setRange(0.0, 10.0)
-        self.kd_input.setValue(1.0)
+        self.kd_input.setValue(0.0)
         self.kd_input.setSingleStep(0.1)
         self.kd_input.setToolTip("Set derivative gain; only affects digital PID mode.")
         self.kd_input.valueChanged.connect(lambda: self.on_gain_value_change("kd"))
@@ -486,6 +486,10 @@ class SettingsWindow(QMainWindow):
         if self.digital_toggle.isChecked():
             sendCommand("M1") # Enable digital PID mode
             self.digital_toggle.setStyleSheet('border: 1px solid #9e9e9e; padding: 2px; background-color: #999999;')
+            # Set gains to override auto mode in microcontroller
+            sendCommand("P" + str(round(self.kp_input.value(), 1)))
+            sendCommand("I" + str(round(self.ki_input.value(), 1)))
+            sendCommand("D" + str(round(self.kd_input.value(), 1)))
         else:
             sendCommand("M0") # Enable analog PID mode
             self.digital_toggle.setStyleSheet('border: 1px solid #9e9e9e; padding: 2px; background-color: none;')
