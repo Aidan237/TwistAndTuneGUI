@@ -485,8 +485,10 @@ class SettingsWindow(QMainWindow):
     def on_digital_toggle(self):
         if self.digital_toggle.isChecked():
             sendCommand("M1") # Enable digital PID mode
+            self.digital_toggle.setStyleSheet('border: 1px solid #9e9e9e; padding: 2px; background-color: #999999;')
         else:
             sendCommand("M0") # Enable analog PID mode
+            self.digital_toggle.setStyleSheet('border: 1px solid #9e9e9e; padding: 2px; background-color: none;')
 
     def on_setpoint_value_change(self):
         global setpoint_min, setpoint_max, setpoint_period
