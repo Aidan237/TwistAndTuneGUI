@@ -10,7 +10,7 @@ import pyqtgraph as pg
 # pip install pyqt6 pyqtgraph pyserial pyopengl
 
 # Configuration
-SIMULATION_MODE = True
+SIMULATION_MODE = False
 MAX_BUFFER_SIZE = 1000
 MAX_SUPPORTED_RPM = 600
 SETPOINT_MODE = "slider" # Options: slider, step, sine, triangle
