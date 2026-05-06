@@ -10,7 +10,7 @@ import pyqtgraph as pg
 # pip install pyqt6 pyqtgraph pyserial pyopengl
 
 # Configuration
-SIMULATION_MODE = False
+SIMULATION_MODE = True
 MAX_BUFFER_SIZE = 1000
 MAX_SUPPORTED_RPM = 600
 SETPOINT_MODE = "slider" # Options: slider, step, sine, triangle
@@ -102,7 +102,7 @@ def updateSerial():
 
         # Update speed and gain text
         window.speed_label.setText("Actual Speed: " + str(dataValues[0]) + "rpm")
-        window.update_gains(dataValues[1], dataValues[2], dataValues[3])
+        window.update_gains(dataValues[1], dataValues[2], dataValues[3], dataValues[4], dataValues[5], dataValues[6])
 
         return
 
@@ -223,8 +223,8 @@ class Dashboard(QMainWindow):
         else:
             self.settings_window.show()
 
-    def update_gains(self, kp, ki, kd):
-        self.gain_label.setText("Kp: " + str(kp) + ", Ki: " + str(ki) + ", Kd: " + str(kd))
+    def update_gains(self, kp, ki, kd, pp, pi, pd):
+        self.gain_label.setText("Kp: " + str(kp) + " (" + str(pp) + "), Ki: " + str(ki) + " (" + str(pi) + "), Kd: " + str(kd) + " (" + str(pd) + ")")
 
     def calculate_setpoint(self, t):
         global setpoint, SETPOINT_MODE, setpoint_max, setpoint_min, setpoint_period
