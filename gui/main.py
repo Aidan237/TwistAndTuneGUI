@@ -224,7 +224,7 @@ class Dashboard(QMainWindow):
             self.settings_window.show()
 
     def update_gains(self, kp, ki, kd, pp, pi, pd):
-        self.gain_label.setText("Kp: " + str(kp) + " (" + str(pp) + "), Ki: " + str(ki) + " (" + str(pi) + "), Kd: " + str(kd) + " (" + str(pd) + ")")
+        self.gain_label.setText("Kp: " + str(kp) + " (" + str(pp) + "%), Ki: " + str(ki) + " (" + str(pi) + "%), Kd: " + str(kd) + " (" + str(pd) + "%)")
 
     def calculate_setpoint(self, t):
         global setpoint, SETPOINT_MODE, setpoint_max, setpoint_min, setpoint_period
