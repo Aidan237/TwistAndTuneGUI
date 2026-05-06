@@ -262,7 +262,13 @@ void loop() {
         Serial.print(",");
         Serial.print(Kid, 3);
         Serial.print(",");
-        Serial.println(Kdd, 3);
+        Serial.print(Kdd, 3);
+        Serial.print(",");
+        Serial.print(fracP, 1);
+        Serial.print(",");
+        Serial.print(fracI, 1);
+        Serial.print(",");
+        Serial.println(fracD, 1);
       }
     }
   }
