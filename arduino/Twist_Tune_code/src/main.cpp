@@ -94,7 +94,13 @@ void loop() {
       if (inputString.startsWith("S")){
       // Expected format: S123
         float spd = inputString.substring(1).toFloat();
+
         if (spd >= 1 && spd <= 600) {
+          motorEnabled = true;
+          myPID.SetMode(MANUAL);
+          output = 0;
+          myPID.SetMode(AUTOMATIC);
+
           userSpeed = spd;
           savedSetPoint = spd;
           speedSet = true;
@@ -145,7 +151,9 @@ void loop() {
         analogWrite(PWM_OUT, 0);
         analogWrite(ERROR_VOUT, 0);
 
+
         output = 0;
+        myPID.SetMode(MANUAL);
       }
 
       inputString = "";
@@ -174,11 +182,6 @@ void loop() {
     pulses = 0;
 
     setPoint = userSpeed;
-
-    if (pidUpdate) {
-      myPID.SetTunings(Kpd, Kid, Kdd);
-      pidUpdate = false;
-    }
 
     // 3. ERROR = SETPOINT - RPM → PWM OUTPUT
     float error = userSpeed - rpm;
@@ -214,33 +217,53 @@ void loop() {
     float Ki = 1.0 / (Ri * C_I_FARADS);
     float Kd = Rfd * C_D_FARADS;
 
-    if (!digitalMode){
-      // analog PID
-      analogWrite(PWM_OUT, 0); // Ensure digital PID output is off
-      analogWrite(ERROR_VOUT, errorPWM);
-      Serial.print(rpm);
-      Serial.print(",");
-      Serial.print(Kp, 3);
-      Serial.print(",");
-      Serial.print(Ki, 3);
-      Serial.print(",");
-      Serial.println(Kd, 3);
+    if (!motorEnabled) {
+      analogWrite(PWM_OUT, 0);
+      analogWrite(ERROR_VOUT, 0);
+      output = 0;
     }
-    else {
-      // digital PID
-      analogWrite(ERROR_VOUT, 0); // Ensure analog error output is off
 
-      myPID.Compute();
-      output = constrain(output, 0, 255);
-      analogWrite(PWM_OUT, (int)output);
+    if(motorEnabled){ 
 
-      Serial.print(rpm);
-      Serial.print(",");
-      Serial.print(Kpd, 3);
-      Serial.print(",");
-      Serial.print(Kid, 3);
-      Serial.print(",");
-      Serial.println(Kdd, 3);
+      if (pidUpdate) {
+        myPID.SetTunings(Kpd, Kid, Kdd);
+        pidUpdate = false;
+      }
+    
+      if (!digitalMode){
+        // analog PID
+        analogWrite(PWM_OUT, 0); // Ensure digital PID output is off
+        analogWrite(ERROR_VOUT, errorPWM);
+        Serial.print(rpm);
+        Serial.print(",");
+        Serial.print(Kp, 3);
+        Serial.print(",");
+        Serial.print(Ki, 3);
+        Serial.print(",");
+        Serial.print(Kd, 3);
+        Serial.print(",");
+        Serial.print(fracP, 1);
+        Serial.print(",");
+        Serial.print(fracI, 1);
+        Serial.print(",");
+        Serial.println(fracD, 1);
+      }
+      else {
+        // digital PID
+        analogWrite(ERROR_VOUT, 0); // Ensure analog error output is off
+
+        myPID.Compute();
+        output = constrain(output, 0, 255);
+        analogWrite(PWM_OUT, (int)output);
+
+        Serial.print(rpm);
+        Serial.print(",");
+        Serial.print(Kpd, 3);
+        Serial.print(",");
+        Serial.print(Kid, 3);
+        Serial.print(",");
+        Serial.println(Kdd, 3);
+      }
     }
   }
 }
