@@ -206,7 +206,7 @@ void loop() {
       Serial.print(Ki, 3);
       Serial.print(",");
       Serial.println(Kd, 3);
-	    Serial.print(",");
+	  Serial.print(",");
       Serial.print(fracP, 1);
       Serial.print(",");
       Serial.print(fracI, 1);
@@ -227,7 +227,7 @@ void loop() {
       Serial.print(Kid, 3);
       Serial.print(",");
       Serial.println(Kdd, 3);
-	    Serial.print(",");
+	  Serial.print(",");
       Serial.print(fracP, 1);
       Serial.print(",");
       Serial.print(fracI, 1);
