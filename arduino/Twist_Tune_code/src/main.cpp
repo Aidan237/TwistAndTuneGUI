@@ -17,27 +17,25 @@ const int VP_PIN = A0;   // P2 pin 5
 const int VI_PIN = A1;   // P3 pin 5
 const int VD_PIN = A2;   // P4 pin 5
 
-// Component values
-const float R1_OHMS = 10000.0;   // R1 = 10k
-const float R2_OHMS = 1000.0;    // R2 = 1k for D-stage
-
 const float POT_P_OHMS = 100000.0;   // 100k dual-gang pot for P
 const float POT_I_OHMS = 100000.0;   // 100k dual-gang pot for I
 const float POT_D_OHMS = 100000.0;   // 100k dual-gang pot for D
 
-const float C1_FARADS = 10e-6;       // C1 = 10 uF
-const float C2_FARADS = 10e-6;       // C2 = 10 uF
+// Component values
+const float RIN_P_OHMS = 10000.0;   // R1 = 10k
+const float C_I_FARADS = 10e-6;     // C1 = 10 uF
+const float C_D_FARADS = 0.1e-6;     // Change to measured derivative cap
 
 // Change false to true if display moves backwards
-const bool INVERT_P = false;
+const bool INVERT_P = true;
 const bool INVERT_I = false;
-const bool INVERT_D = false;
+const bool INVERT_D = true;
 
 // Small minimum resistance to avoid divide by zero 
-const float MIN_R_OHMS = 1.0;
+const float MIN_RI_OHMS = 10000.0;
 
 // Opt averaging for smoother display
-const int NUM_SAMPLES = 10;
+const int NUM_SAMPLES = 20;
 
 double setPoint = 0;
 double savedSetPoint = 0;
@@ -65,7 +63,7 @@ void setup() {
   pinMode(ERROR_VOUT, OUTPUT);
   pinMode(PWM_OUT, OUTPUT);
 
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   myPID.SetMode(AUTOMATIC);
   myPID.SetOutputLimits(0, 255);
@@ -176,24 +174,24 @@ void loop() {
     errorPWM = constrain(errorPWM, 0, 255);
 
     // Read display gains
-    float rawVp = readAverage(VP_PIN);
-    float rawVi = readAverage(VI_PIN);
-    float rawVd = readAverage(VD_PIN);
+    float adcP = readAverageADC(VP_PIN);
+    float adcI = readAverageADC(VI_PIN);
+    float adcD = readAverageADC(VD_PIN);
 
     // Convert knob position to fraction
-    float fracP = rawToFraction(rawVp, INVERT_P);
-    float fracI = rawToFraction(rawVi, INVERT_I);
-    float fracD = rawToFraction(rawVd, INVERT_D);
+    float Ppct = adcToPercent(adcP, INVERT_P);
+    float Ipct = adcToPercent(adcI, INVERT_I);
+    float Dpct = adcToPercent(adcD, INVERT_D);
 
     // Convert fraction to matching gang resistance - both gangs track each other mechanically
-    float Rfp = fractionToResistance(fracP, POT_P_OHMS);
-    float Ri  = fractionToResistance(fracI, POT_I_OHMS);
-    float Rfd = fractionToResistance(fracD, POT_D_OHMS);
+    float Rp = percentToResistance(Ppct, POT_P_OHMS);
+    float Ri  = percentToResistance(Ipct, POT_I_OHMS);
+    float Rd = percentToResistance(Dpct, POT_D_OHMS);
 
     // Gain calculations
-    float Kp = Rfp / R1_OHMS;
-    float Ki = 1.0 / (Ri * C1_FARADS);
-    float Kd = Rfd * C2_FARADS;
+    float Kp = Rp / RIN_P_OHMS;
+    float Ki = 1.0 / (Ri * C_I_FARADS);
+    float Kd = Rd * C_D_FARADS;
 
     if (!digitalMode){
       // analog PID
@@ -205,13 +203,13 @@ void loop() {
       Serial.print(",");
       Serial.print(Ki, 3);
       Serial.print(",");
-      Serial.println(Kd, 3);
-	  Serial.print(",");
-      Serial.print(fracP, 1);
+      Serial.print(Kd, 3);
+	    Serial.print(",");
+      Serial.print(Ppct, 1);
       Serial.print(",");
-      Serial.print(fracI, 1);
+      Serial.print(Ipct, 1);
       Serial.print(",");
-      Serial.println(fracD, 1);
+      Serial.println(Dpct, 1);
     }
     else {
       // digital PID
@@ -226,13 +224,13 @@ void loop() {
       Serial.print(",");
       Serial.print(Kid, 3);
       Serial.print(",");
-      Serial.println(Kdd, 3);
-	  Serial.print(",");
-      Serial.print(fracP, 1);
+      Serial.print(Kdd, 3);
+	    Serial.print(",");
+      Serial.print(Ppct, 1);
       Serial.print(",");
-      Serial.print(fracI, 1);
+      Serial.print(Ipct, 1);
       Serial.print(",");
-      Serial.println(fracD, 1);
+      Serial.println(Dpct, 1);
     }
   }
 }
@@ -241,8 +239,9 @@ void countPulses() {
   pulses++;
 }
 
-float readAverage(int pin) {
+float readAverageADC(int pin) {
   long sum = 0;
+
   for (int i = 0; i < NUM_SAMPLES; i++) {
     sum += analogRead(pin);
     //delay(2);
@@ -250,16 +249,19 @@ float readAverage(int pin) {
   return sum / float(NUM_SAMPLES);
 }
 
-float rawToFraction(float raw, bool invertDirection) {
-  float x = raw / 1023.0;     // 0.0 to 1.0
-  if (invertDirection) {
-    x = 1.0 - x;
+float adcToPercent(float adcValue, bool invertValue) {
+  float percent = adcValue * 100.0 / 1023.0;
+
+  if (invertValue) {
+    percent = 100.0 - percent;
   }
-  return x;
+
+  if (percent < 0.0) percent = 0.0;
+  if (percent > 100.0) percent = 100.0;
+
+  return percent;
 }
 
-float fractionToResistance(float fraction, float potOhms) {
-  float r = fraction * potOhms;
-  if (r < MIN_R_OHMS) r = MIN_R_OHMS;
-  return r;
+float percentToResistance(float percent, float potOhms) {
+  return (percent / 100.0) * potOhms;
 }
