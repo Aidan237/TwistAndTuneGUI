@@ -101,7 +101,7 @@ def updateSerial():
         speed = dataValues[0]
 
         # Update speed and gain text
-        window.speed_label.setText("Actual Speed: " + str(dataValues[0]) + "rpm")
+        window.speed_label.setText("Actual Speed: " + str(dataValues[0]) + "rpm   -   Setpoint: " + str(int(setpoint)) + "rpm")
         window.update_gains(dataValues[1], dataValues[2], dataValues[3], dataValues[4], dataValues[5], dataValues[6])
 
         return
