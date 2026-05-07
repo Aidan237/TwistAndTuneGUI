@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, QTimer
 import pyqtgraph as pg
 
 # DEPENDENCIES:
-# pip install pyqt6 pyqtgraph pyserial pyopengl
+# pip install pyqt6 pyqtgraph pyserial
 
 # Configuration
 SIMULATION_MODE = False
@@ -487,9 +487,9 @@ class SettingsWindow(QMainWindow):
             sendCommand("M1") # Enable digital PID mode
             self.digital_toggle.setStyleSheet('border: 1px solid #9e9e9e; padding: 2px; background-color: #999999;')
             # Set gains to override auto mode in microcontroller
-            sendCommand("P" + str(round(self.kp_input.value(), 1)))
-            sendCommand("I" + str(round(self.ki_input.value(), 1)))
-            sendCommand("D" + str(round(self.kd_input.value(), 1)))
+            #sendCommand("P" + str(round(self.kp_input.value(), 1)))
+            #sendCommand("I" + str(round(self.ki_input.value(), 1)))
+            #sendCommand("D" + str(round(self.kd_input.value(), 1)))
         else:
             sendCommand("M0") # Enable analog PID mode
             self.digital_toggle.setStyleSheet('border: 1px solid #9e9e9e; padding: 2px; background-color: none;')
