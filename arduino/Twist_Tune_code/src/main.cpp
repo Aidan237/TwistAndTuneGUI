@@ -13,20 +13,20 @@
 #define PULSES_PER_REV 120
 
 // input pins
-const int KP_PIN = A0;   // P2 pin 5
-const int KI_PIN = A1;   // P3 pin 5
-const int KD_PIN = A2;   // P4 pin 5
+const int VP_PIN = A0;   // P2 pin 5
+const int VI_PIN = A1;   // P3 pin 5
+const int VD_PIN = A2;   // P4 pin 5
 
-// Pot Values
+// Component values
+const float R1_OHMS = 10000.0;   // R1 = 10k
+const float R2_OHMS = 1000.0;    // R2 = 1k for D-stage
+
 const float POT_P_OHMS = 100000.0;   // 100k dual-gang pot for P
 const float POT_I_OHMS = 100000.0;   // 100k dual-gang pot for I
 const float POT_D_OHMS = 100000.0;   // 100k dual-gang pot for D
 
-// Circuit values
-const float RIN_P_OHMS = 10000.0;   // R1 = 10k
-
-const float C_I_FARADS = 10e-6;       // C1 = 10 uF
-const float C_D_FARADS = 0.1e-6;       // C2 = 0.1 uF
+const float C1_FARADS = 10e-6;       // C1 = 10 uF
+const float C2_FARADS = 10e-6;       // C2 = 10 uF
 
 // Change false to true if display moves backwards
 const bool INVERT_P = false;
@@ -34,10 +34,10 @@ const bool INVERT_I = false;
 const bool INVERT_D = false;
 
 // Small minimum resistance to avoid divide by zero 
-const float MIN_RI_OHMS = 10000.0;
+const float MIN_R_OHMS = 1.0;
 
 // Opt averaging for smoother display
-const int NUM_SAMPLES = 20;
+const int NUM_SAMPLES = 10;
 
 double setPoint = 0;
 double savedSetPoint = 0;
@@ -58,8 +58,6 @@ bool digitalMode = false; //false = analog PID, true = digital PID
 
 String inputString = "";         // a String to hold incoming data
 
-bool motorEnabled = true;
-
 PID myPID(&rpm, &output, &setPoint, Kpd, Kid, Kdd, DIRECT);
 
 void setup() {
@@ -67,7 +65,7 @@ void setup() {
   pinMode(ERROR_VOUT, OUTPUT);
   pinMode(PWM_OUT, OUTPUT);
 
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   myPID.SetMode(AUTOMATIC);
   myPID.SetOutputLimits(0, 255);
@@ -94,13 +92,7 @@ void loop() {
       if (inputString.startsWith("S")){
       // Expected format: S123
         float spd = inputString.substring(1).toFloat();
-
         if (spd >= 1 && spd <= 600) {
-          motorEnabled = true;
-          myPID.SetMode(MANUAL);
-          output = 0;
-          myPID.SetMode(AUTOMATIC);
-
           userSpeed = spd;
           savedSetPoint = spd;
           speedSet = true;
@@ -141,20 +133,8 @@ void loop() {
           digitalMode = false;
           //Serial.println("Digital mode disabled");
         }
-        analogWrite(PWM_OUT, 0);
-        analogWrite(ERROR_VOUT, 0);
       }
 
-      else if(inputString.startsWith("O")){
-        motorEnabled = false;
-
-        analogWrite(PWM_OUT, 0);
-        analogWrite(ERROR_VOUT, 0);
-
-
-        output = 0;
-        myPID.SetMode(MANUAL);
-      }
 
       inputString = "";
     }
@@ -183,6 +163,11 @@ void loop() {
 
     setPoint = userSpeed;
 
+    if (pidUpdate) {
+      myPID.SetTunings(Kpd, Kid, Kdd);
+      pidUpdate = false;
+    }
+
     // 3. ERROR = SETPOINT - RPM → PWM OUTPUT
     float error = userSpeed - rpm;
 
@@ -191,9 +176,9 @@ void loop() {
     errorPWM = constrain(errorPWM, 0, 255);
 
     // Read display gains
-    float rawVp = readAverage(KP_PIN);
-    float rawVi = readAverage(KI_PIN);
-    float rawVd = readAverage(KD_PIN);
+    float rawVp = readAverage(VP_PIN);
+    float rawVi = readAverage(VI_PIN);
+    float rawVd = readAverage(VD_PIN);
 
     // Convert knob position to fraction
     float fracP = rawToFraction(rawVp, INVERT_P);
@@ -205,71 +190,49 @@ void loop() {
     float Ri  = fractionToResistance(fracI, POT_I_OHMS);
     float Rfd = fractionToResistance(fracD, POT_D_OHMS);
 
-    bool KiLimited = false;
-
-    if(Ri < MIN_RI_OHMS) {
-      Ri = MIN_RI_OHMS;
-      KiLimited = true;
-    }
-
     // Gain calculations
-    float Kp = Rfp / RIN_P_OHMS;
-    float Ki = 1.0 / (Ri * C_I_FARADS);
-    float Kd = Rfd * C_D_FARADS;
+    float Kp = Rfp / R1_OHMS;
+    float Ki = 1.0 / (Ri * C1_FARADS);
+    float Kd = Rfd * C2_FARADS;
 
-    if (!motorEnabled) {
-      analogWrite(PWM_OUT, 0);
-      analogWrite(ERROR_VOUT, 0);
-      output = 0;
+    if (!digitalMode){
+      // analog PID
+      analogWrite(PWM_OUT, 0); // Ensure digital PID output is off
+      analogWrite(ERROR_VOUT, errorPWM);
+      Serial.print(rpm);
+      Serial.print(",");
+      Serial.print(Kp, 3);
+      Serial.print(",");
+      Serial.print(Ki, 3);
+      Serial.print(",");
+      Serial.println(Kd, 3);
+	    Serial.print(",");
+      Serial.print(fracP, 1);
+      Serial.print(",");
+      Serial.print(fracI, 1);
+      Serial.print(",");
+      Serial.println(fracD, 1);
     }
+    else {
+      // digital PID
+      analogWrite(ERROR_VOUT, 0); // Ensure analog error output is off
+      myPID.Compute();
+      output = constrain(output, 0, 255);
+      analogWrite(PWM_OUT, (int)output);
 
-    if(motorEnabled){ 
-
-      if (pidUpdate) {
-        myPID.SetTunings(Kpd, Kid, Kdd);
-        pidUpdate = false;
-      }
-    
-      if (!digitalMode){
-        // analog PID
-        analogWrite(PWM_OUT, 0); // Ensure digital PID output is off
-        analogWrite(ERROR_VOUT, errorPWM);
-        Serial.print(rpm);
-        Serial.print(",");
-        Serial.print(Kp, 3);
-        Serial.print(",");
-        Serial.print(Ki, 3);
-        Serial.print(",");
-        Serial.print(Kd, 3);
-        Serial.print(",");
-        Serial.print(fracP, 1);
-        Serial.print(",");
-        Serial.print(fracI, 1);
-        Serial.print(",");
-        Serial.println(fracD, 1);
-      }
-      else {
-        // digital PID
-        analogWrite(ERROR_VOUT, 0); // Ensure analog error output is off
-
-        myPID.Compute();
-        output = constrain(output, 0, 255);
-        analogWrite(PWM_OUT, (int)output);
-
-        Serial.print(rpm);
-        Serial.print(",");
-        Serial.print(Kpd, 3);
-        Serial.print(",");
-        Serial.print(Kid, 3);
-        Serial.print(",");
-        Serial.print(Kdd, 3);
-        Serial.print(",");
-        Serial.print(fracP, 1);
-        Serial.print(",");
-        Serial.print(fracI, 1);
-        Serial.print(",");
-        Serial.println(fracD, 1);
-      }
+      Serial.print(rpm);
+      Serial.print(",");
+      Serial.print(Kpd, 3);
+      Serial.print(",");
+      Serial.print(Kid, 3);
+      Serial.print(",");
+      Serial.println(Kdd, 3);
+	    Serial.print(",");
+      Serial.print(fracP, 1);
+      Serial.print(",");
+      Serial.print(fracI, 1);
+      Serial.print(",");
+      Serial.println(fracD, 1);
     }
   }
 }
@@ -287,20 +250,16 @@ float readAverage(int pin) {
   return sum / float(NUM_SAMPLES);
 }
 
-float rawToFraction(float adcValue, bool invertValue) {
-  float percent = adcValue * 100.0 / 1023.0;
-
-  if (invertValue) {
-    percent = 100.0 - percent;
+float rawToFraction(float raw, bool invertDirection) {
+  float x = raw / 1023.0;     // 0.0 to 1.0
+  if (invertDirection) {
+    x = 1.0 - x;
   }
-
-  if (percent < 0.0) percent = 0.0;
-  if (percent > 100.0) percent = 100.0;
-
-  return percent;
+  return x;
 }
 
-float fractionToResistance(float percent, float potOhms) {
-  return (percent / 100.0) * potOhms;
+float fractionToResistance(float fraction, float potOhms) {
+  float r = fraction * potOhms;
+  if (r < MIN_R_OHMS) r = MIN_R_OHMS;
+  return r;
 }
-
